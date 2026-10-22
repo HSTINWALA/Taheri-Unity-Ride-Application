@@ -51,7 +51,7 @@ dialog{background:var(--card);color:var(--tx);border:1px solid var(--line);borde
 window.TOK='atok';
 const ENT={
  Participants:{key:'id',f:[['id','ID'],['name','Name'],['category','Category'],['phone','Phone']]},
- // Volunteers:{key:'username',f:[['username','Username'],['password','Password'],['name','Name'],['phone','Phone'],['checkpointId','Assigned checkpoint','cp']]},
+ Volunteers:{key:'username',f:[['username','Username'],['name','Name'],['phone','Phone'],['checkpointId','Assigned checkpoint','cp']]},
  Checkpoints:{key:'id',f:[['id','ID (e.g. CP1)'],['name','Name'],['order','Order (1 = start, highest = finish)','number']]}};
 const TABS=[['dash','Dashboard'],['Participants','Participants'],['Volunteers','Volunteers'],['Checkpoints','Checkpoints'],['scan','Scan'],['cards','Cards']];
 let S={Participants:[],Volunteers:[],Checkpoints:[],Scans:[]},cur='dash',Q={};
