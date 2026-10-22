@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin – Taheri Unity Ride 2026</title>
+<link rel="stylesheet" href="common.css">
+<style>
+nav{display:flex;gap:6px;flex-wrap:wrap;padding:10px 16px;background:#0e1932;border-bottom:1px solid var(--line)}
+nav button{background:transparent;color:var(--mu);border:0;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:.95rem}
+nav button.on{background:var(--ac);color:#1b1205;font-weight:700}
+.tab{display:none}.tab.on{display:block}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px}
+.kpis div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}.kpis b{display:block;font-size:2rem;color:var(--ac)}
+.podium{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.pod{border-radius:12px;padding:14px;background:#0e1932;border:2px solid var(--line)}.pod.p1{border-color:#f1c40f}.pod.p2{border-color:#c0c8d8}.pod.p3{border-color:#cd7f32}
+.pod .nm{font-size:1.2rem;font-weight:700}
+.cpbar{display:flex;align-items:center;gap:10px;margin:6px 0}.cpbar span{width:140px;font-size:.85rem}.cpbar i{display:block;height:14px;border-radius:7px;background:var(--sky);min-width:2px}
+dialog{background:var(--card);color:var(--tx);border:1px solid var(--line);border-radius:12px;width:min(420px,92vw)}dialog::backdrop{background:#000a}
+#cardgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.pcard{background:#fff;color:#111;border-radius:14px;border:2px solid #14213d;overflow:hidden;text-align:center;break-inside:avoid}
+.pcard .top{background:#14213d;color:#fff;display:flex;align-items:center;gap:10px;padding:8px 12px;text-align:left;font-size:.85rem;line-height:1.2}
+.pcard .top img{width:42px;height:42px;border-radius:50%}.pcard .top b{color:#f08a24;display:block}
+.pcard .nm{font-size:1.4rem;font-weight:800;margin-top:10px}.pcard .pid{font:700 1.1rem monospace;color:#c96a0a;letter-spacing:1px}
+.pcard .qr{display:flex;justify-content:center;padding:10px}.pcard .ft{background:#f08a24;font-size:.75rem;padding:4px;font-weight:700}
+@media print{header,nav,.noprint,#toast{display:none!important}body{background:#fff}main{padding:0}.panel{border:0;background:none;padding:0}#cardgrid{grid-template-columns:repeat(2,1fr)}}
+</style></head><body>
+<header class="noprint"><img src="logo.jpg" alt=""><h1>Taheri Unity Ride 2026<small>Admin portal – Burhani Guards Division-II</small></h1><button class="btn ghost sm" id="out" style="display:none" onclick="logout()">Log out</button></header>
+
+<main id="lg" style="max-width:420px"><div class="panel"><h2>Admin login</h2>
+<label>Username</label><input id="u"><label>Password</label><input id="p" type="password" onkeydown="event.key=='Enter'&&login()">
+<button class="btn" style="width:100%" onclick="login()">Log in</button></div></main>
+
+<div id="shell" style="display:none">
+<nav id="nav"></nav>
+<main>
+<section class="tab" id="dash"></section>
+<section class="tab" id="Participants"></section>
+<section class="tab" id="Volunteers"></section>
+<section class="tab" id="Checkpoints"></section>
+<section class="tab" id="scan"><div class="panel"><h2>Scan as admin (any checkpoint)</h2>
+<label>Checkpoint</label><select id="scp"></select><div id="reader"></div><div id="sres" style="text-align:center;margin:12px 0;font-size:1.1rem"></div>
+<div class="bar"><input id="sman" placeholder="Or type participant ID" style="flex:1"><button class="btn" onclick="doScan($('#sman').value)">Record</button></div></div></section>
+<section class="tab" id="cards"><div class="panel"><div class="bar noprint"><h2>Participant cards</h2><input id="cq" placeholder="Filter name or ID" oninput="renderCards()"><button class="btn" onclick="print()">Print cards</button></div><div id="cardgrid"></div></div></section>
+</main></div>
+<dialog id="dlg"><form method="dialog" id="frm" onsubmit="return false"></form></dialog>
+<div id="toast"></div>
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="common.js"></script>
+<script>
+window.TOK='atok';
+const ENT={
+ Participants:{key:'id',f:[['id','ID'],['name','Name'],['category','Category'],['phone','Phone']]},
+ Volunteers:{key:'username',f:[['username','Username'],['password','Password'],['name','Name'],['phone','Phone'],['checkpointId','Assigned checkpoint','cp']]},
+ Checkpoints:{key:'id',f:[['id','ID (e.g. CP1)'],['name','Name'],['order','Order (1 = start, highest = finish)','number']]}};
+const TABS=[['dash','Dashboard'],['Participants','Participants'],['Volunteers','Volunteers'],['Checkpoints','Checkpoints'],['scan','Scan'],['cards','Cards']];
+let S={Participants:[],Volunteers:[],Checkpoints:[],Scans:[]},cur='dash',Q={};
+$('#nav').innerHTML=TABS.map(t=>`<button data-t="${t[0]}" onclick="show('${t[0]}')">${t[1]}</button>`).join('');
+async function login(){const r=await api('login',{role:'admin',user:$('#u').value.trim(),pass:$('#p').value});
+ if(!r.ok)return toast(r.error,'err',4000);localStorage.setItem('atok',r.token);boot()}
+function logout(){localStorage.removeItem('atok');stopScan();location.reload()}
+async function load(){const r=await api('state');if(r.error==='auth')return logout();if(!r.ok)return toast(r.error,'err');S=r.data;render()}
+async function boot(){if(!localStorage.getItem('atok'))return;$('#lg').style.display='none';$('#shell').style.display='block';$('#out').style.display='';
+ await load();show('dash');setInterval(()=>{if(!$('#dlg').open&&cur=='dash')load()},15000)}
+function show(t){cur=t;document.querySelectorAll('.tab').forEach(e=>e.classList.toggle('on',e.id==t));
+ document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t==t));
+ t=='scan'?startScan(doScan):stopScan();render()}
+const cpName=id=>(S.Checkpoints.find(c=>c.id==id)||{}).name||id||'–';
+const cps=()=>[...S.Checkpoints].sort((a,b)=>a.order-b.order);
+function render(){if(cur=='dash')renderDash();else if(ENT[cur])renderEnt(cur);else if(cur=='scan')$('#scp').innerHTML=cps().map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');else if(cur=='cards')renderCards()}
+
+function board(){const c=cps(),end=c[c.length-1],by={};
+ S.Scans.forEach(s=>{(by[s.participantId]=by[s.participantId]||{})[s.checkpointId]=s.time});
+ const rows=S.Participants.map(p=>{const m=by[p.id]||{},t=Object.values(m).sort();return{p,m,n:t.length,last:t[t.length-1]||'',fin:end?m[end.id]||'':''}});
+ rows.sort((a,b)=>(!!b.fin-!!a.fin)||(a.fin&&b.fin?a.fin.localeCompare(b.fin):0)||(b.n-a.n)||((a.last||'z').localeCompare(b.last||'z')));
+ let rk=0;rows.forEach(r=>r.rank=r.fin?++rk:0);return{rows,c,end}}
+function renderDash(){const{rows,c,end}=board(),fin=rows.filter(r=>r.fin),started=rows.filter(r=>r.n);
+ const pod=fin.slice(0,3).map(r=>`<div class="pod p${r.rank}"><div>Position ${r.rank}</div><div class="nm">${esc(r.p.name)}</div><div>${esc(r.p.id)} · finished ${fmt(r.fin)}</div>
+  ${r.p.verifiedPos==r.rank?'<span class="tag ok">✔ Verified</span>':`<button class="btn sm" style="margin-top:8px" onclick="verify('${esc(r.p.id)}',${r.rank})">Verify position ${r.rank}</button>`}</div>`).join('')||'<p style="color:var(--mu)">No finisher yet. The first scan at the finish checkpoint will appear here.</p>';
+ const mx=Math.max(1,S.Participants.length);
+ $('#dash').innerHTML=`<div class="kpis"><div><b>${S.Participants.length}</b>Participants</div><div><b>${started.length}</b>Started</div><div><b>${fin.length}</b>Finished</div><div><b>${S.Volunteers.length}</b>Volunteers</div></div>
+ <div class="panel"><h2>Podium</h2><div class="podium">${pod}</div></div>
+ <div class="panel"><h2>Checkpoint progress</h2>${c.map(k=>{const n=S.Scans.filter(s=>s.checkpointId==k.id).length;return`<div class="cpbar"><span>${esc(k.name)}</span><i style="width:${n/mx*60}%"></i> ${n}</div>`}).join('')||'<p>Add checkpoints first.</p>'}</div>
+ <div class="panel"><div class="bar"><h2>Live leaderboard</h2><button class="btn ghost sm" onclick="load()">Refresh</button></div><div class="tw"><table><tr><th>#</th><th>ID</th><th>Name</th>${c.map(k=>`<th>${esc(k.name)}</th>`).join('')}<th>Status</th></tr>
+ ${rows.map(r=>`<tr><td>${r.rank||''}</td><td>${esc(r.p.id)}</td><td>${esc(r.p.name)}</td>${c.map(k=>`<td>${fmt(r.m[k.id])}</td>`).join('')}<td>${r.fin?'<span class="tag ok">Finished</span>':r.n?`<span class="tag">${r.n}/${c.length}</span>`:'Not started'}${r.p.verifiedPos?` <span class="tag ok">Verified #${esc(r.p.verifiedPos)}</span>`:''}</td></tr>`).join('')}</table></div></div>`}
+async function verify(id,pos){const p=S.Participants.find(x=>x.id==id);const r=await api('save',{sheet:'Participants',row:{...p,verifiedPos:pos}});r.ok?(toast('Position '+pos+' verified'),load()):toast(r.error,'err')}
+
+function renderEnt(n){const E=ENT[n],q=(Q[n]||'').toLowerCase();
+ const list=S[n].map((r,i)=>[r,i]).filter(([r])=>JSON.stringify(r).toLowerCase().includes(q));
+ $('#'+n).innerHTML=`<div class="panel"><div class="bar"><h2>${n} (${S[n].length})</h2><input placeholder="Search" value="${esc(Q[n]||'')}" oninput="Q['${n}']=this.value;renderEnt('${n}')" id="s${n}"><button class="btn" onclick="edit('${n}')">+ Add</button></div>
+ <div class="tw"><table><tr>${E.f.map(f=>`<th>${f[1]}</th>`).join('')}<th></th></tr>${list.map(([r,i])=>`<tr>${E.f.map(f=>`<td>${esc(f[2]=='cp'?cpName(r[f[0]]):r[f[0]])}</td>`).join('')}<td>
+ <button class="btn ghost sm" onclick="edit('${n}',${i})">Edit</button> ${n=='Participants'?`<button class="btn ghost sm" onclick="$('#cq').value='${esc(r.id)}';show('cards')">Card</button> `:''}<button class="btn red sm" onclick="del('${n}',${i})">Delete</button></td></tr>`).join('')}</table></div></div>`;
+ const s=$('#s'+n);if(s&&q){s.focus();s.setSelectionRange(99,99)}}
+function edit(n,i){const E=ENT[n],r=i==null?{}:S[n][i];
+ if(i==null&&n=='Participants')r.id='TUR26-'+String(S.Participants.length+1).padStart(3,'0');
+ $('#frm').innerHTML=`<h2>${i==null?'Add':'Edit'} ${n.slice(0,-1).toLowerCase()}</h2>`+E.f.map(f=>`<label>${f[1]}</label>`+(f[2]=='cp'?`<select name="${f[0]}"><option value="">– none –</option>${cps().map(c=>`<option value="${esc(c.id)}" ${r[f[0]]==c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select>`:`<input name="${f[0]}" type="${f[2]||'text'}" value="${esc(r[f[0]])}" ${f[0]==E.key&&i!=null?'readonly':''}>`)).join('')+
+ `<div class="bar"><button class="btn" id="sv">Save</button><button class="btn ghost" type="button" onclick="$('#dlg').close()">Cancel</button></div>`;
+ $('#sv').onclick=async()=>{const row={...r};E.f.forEach(f=>row[f[0]]=$(`[name=${f[0]}]`,$('#frm')).value.trim());
+  if(!row[E.key])return toast(E.key+' is required','err');
+  if(i==null&&S[n].some(x=>x[E.key]==row[E.key]))return toast('That '+E.key+' already exists','err');
+  const res=await api('save',{sheet:n,row});if(res.ok){$('#dlg').close();toast('Saved');load()}else toast(res.error,'err')};
+ $('#dlg').showModal()}
+async function del(n,i){const r=S[n][i];if(!confirm('Delete '+r[ENT[n].key]+'?'))return;const res=await api('remove',{sheet:n,key:r[ENT[n].key]});res.ok?(toast('Deleted'),load()):toast(res.error,'err')}
+
+async function doScan(code){code=(code||'').trim();if(!code)return;const r=await api('scan',{code,checkpointId:$('#scp').value});
+ const el=$('#sres');if(!r.ok){el.textContent=r.error;toast(r.error,'err');return beep(0)}
+ el.innerHTML=r.status=='ok'?`✔ <b>${esc(r.name)}</b> (${esc(r.id)}) recorded at ${esc(cpName($('#scp').value))}`:esc(r.msg)+(r.name?' – '+esc(r.name):'');
+ toast(r.status=='ok'?'Recorded':r.msg,r.status=='ok'?'ok':'warn');beep(r.status=='ok');$('#sman').value='';load()}
+
+function renderCards(){const q=($('#cq').value||'').toLowerCase();
+ const l=S.Participants.filter(p=>(p.id+' '+p.name).toLowerCase().includes(q));
+ $('#cardgrid').innerHTML=l.map((p,i)=>`<div class="pcard"><div class="top"><img src="logo.jpg" alt=""><div><b>Taheri Unity Ride 2026</b>Burhani Guards Division-II</div></div>
+ <div class="nm">${esc(p.name)}</div><div class="pid">${esc(p.id)}</div>${p.category?`<div style="font-size:.85rem">${esc(p.category)}</div>`:''}<div class="qr" id="qr${i}"></div><div class="ft">Show this QR at every checkpoint</div></div>`).join('')||'<p>No participants yet.</p>';
+ l.forEach((p,i)=>new QRCode(document.getElementById('qr'+i),{text:p.id,width:130,height:130}))}
+boot();
+</script></body></html>

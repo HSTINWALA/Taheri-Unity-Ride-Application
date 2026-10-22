@@ -1,0 +1,22 @@
+:root{--bg:#101c36;--card:#182a4f;--line:#2a4070;--ac:#f08a24;--tx:#f4f6fb;--mu:#a3b3d3;--ok:#2ecc71;--er:#ff5b5b;--sky:#4aa3df}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--tx);line-height:1.45}
+header{display:flex;align-items:center;gap:12px;padding:10px 16px;background:#0b1326;border-bottom:3px solid var(--ac)}
+header img{width:44px;height:44px;border-radius:10px}
+header h1{font-size:1.05rem;margin:0;flex:1}header small{display:block;color:var(--mu);font-weight:normal}
+main{max-width:1100px;margin:0 auto;padding:16px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+h2{margin:0 0 10px;font-size:1.15rem}
+input,select{width:100%;padding:11px 12px;margin:4px 0 12px;border-radius:8px;border:1px solid var(--line);background:#0e1932;color:var(--tx);font-size:1rem}
+label{font-size:.85rem;color:var(--mu)}
+.btn{background:var(--ac);color:#1b1205;border:0;padding:10px 16px;border-radius:8px;font-weight:700;font-size:.95rem;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--tx);border:1px solid var(--line)}
+.btn.red{background:var(--er);color:#fff}.btn.sm{padding:5px 10px;font-size:.8rem}
+.btn:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--sky)}
+.tw{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:.9rem}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}th{color:var(--mu);font-weight:600}
+.bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}.bar h2{margin:0;flex:1}.bar input{width:200px;margin:0}
+#reader{width:100%;max-width:420px;margin:0 auto;border-radius:12px;overflow:hidden;background:#000;min-height:80px}
+#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);padding:12px 20px;border-radius:10px;font-weight:700;display:none;z-index:99;max-width:90%}
+.ok{background:var(--ok);color:#062412}.err{background:var(--er);color:#fff}.warn{background:#f1c40f;color:#2b2200}
+.tag{padding:2px 8px;border-radius:20px;font-size:.78rem;background:#223a6b}.tag.ok{background:var(--ok)}

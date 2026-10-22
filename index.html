@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Volunteer – Taheri Unity Ride 2026</title>
+<link rel="stylesheet" href="common.css">
+<style>.big{font-size:2.4rem;font-weight:800;color:var(--ac)}.stats{display:flex;gap:12px;text-align:center}.stats div{flex:1;background:#0e1932;border-radius:10px;padding:10px}.res{display:none;text-align:center;padding:14px;border-radius:12px;margin:14px 0;font-size:1.1rem}.res b{display:block;font-size:1.5rem}.row{display:flex;gap:8px}.row input{margin:0}</style>
+</head><body>
+<header><img src="logo.jpg" alt=""><h1>Taheri Unity Ride 2026<small>Volunteer checkpoint entry</small></h1><button class="btn ghost sm" id="out" style="display:none" onclick="logout()">Log out</button></header>
+<main style="max-width:520px">
+<section id="login" class="panel"><h2>Volunteer login</h2>
+<label>Username</label><input id="u" autocomplete="username"><label>Password</label><input id="p" type="password" autocomplete="current-password" onkeydown="event.key=='Enter'&&login()">
+<button class="btn" style="width:100%" onclick="login()">Log in</button></section>
+<section id="app" style="display:none">
+<div class="panel"><div style="color:var(--mu)">Your checkpoint</div><div class="big" id="cpn">–</div><div id="vn" style="color:var(--mu)"></div></div>
+<div class="panel"><div id="reader"></div>
+<div class="res" id="res"></div>
+<div class="row" style="margin-top:12px"><input id="man" placeholder="Or type participant ID"><button class="btn" onclick="manual()">Enter</button></div></div>
+<div class="panel"><div class="stats"><div><div class="big" id="cnt">0</div>scanned here</div><div><div class="big" id="tot">0</div>participants</div></div></div>
+<div class="panel"><h2>Recent entries</h2><div class="tw"><table id="rec"></table></div></div>
+</section></main><div id="toast"></div>
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="common.js"></script>
+<script>
+window.TOK='vtok';let busy=false;
+async function login(){const r=await api('login',{role:'volunteer',user:$('#u').value.trim(),pass:$('#p').value});
+  if(!r.ok)return toast(r.error,'err',4000);localStorage.setItem('vtok',r.token);boot()}
+function logout(){localStorage.removeItem('vtok');stopScan();location.reload()}
+async function refresh(){const r=await api('state');if(r.error==='auth')return logout();if(!r.ok)return toast(r.error,'err');
+  $('#cpn').textContent=r.cp?r.cp.name:'Not assigned';$('#cnt').textContent=r.count;$('#tot').textContent=r.total;
+  $('#rec').innerHTML='<tr><th>Time</th><th>ID</th><th>Name</th></tr>'+r.recent.map(x=>`<tr><td>${fmt(x.time)}</td><td>${esc(x.id)}</td><td>${esc(x.name)}</td></tr>`).join('')}
+async function boot(){if(!localStorage.getItem('vtok'))return;$('#login').style.display='none';$('#app').style.display='block';$('#out').style.display='';
+  await refresh();startScan(submit)}
+async function submit(code){if(busy)return;busy=true;const r=await api('scan',{code});busy=false;
+  if(r.error==='auth')return logout();const el=$('#res');el.style.display='block';
+  if(!r.ok){el.className='res err';el.textContent=r.error;beep(0)}
+  else if(r.status==='ok'){el.className='res ok';el.innerHTML=`✔ Recorded<b>${esc(r.name)}</b>${esc(r.id)}`;beep(1);refresh()}
+  else{el.className='res '+(r.status==='dup'?'warn':'err');el.innerHTML=`${esc(r.msg)}<b>${esc(r.name||'')}</b>`;beep(0)}}
+function manual(){const v=$('#man').value.trim();if(v){submit(v);$('#man').value=''}}
+boot();
+</script></body></html>
