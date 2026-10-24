@@ -36,8 +36,10 @@ dialog{background:var(--card);color:var(--tx);border:1px solid var(--line);borde
 <section class="tab" id="Participants"></section>
 <section class="tab" id="Volunteers"></section>
 <section class="tab" id="Checkpoints"></section>
+<section class="tab" id="act"></section>
+<section class="tab" id="ActivityUsers"></section>
 <section class="tab" id="scan"><div class="panel"><h2>Scan as admin (any checkpoint)</h2>
-<label>Checkpoint</label><select id="scp"></select><div id="reader"></div><div id="sres" style="text-align:center;margin:12px 0;font-size:1.1rem"></div>
+<label>Checkpoint</label><select id="scp"></select><label style="display:block;margin-bottom:10px"><input type="checkbox" id="force" style="width:auto;margin:0 6px 0 0">Override checkpoint sequence (allow skipping previous checkpoint)</label><div id="reader"></div><div id="sres" style="text-align:center;margin:12px 0;font-size:1.1rem"></div>
 <div class="bar"><input id="sman" placeholder="Or type participant ID" style="flex:1"><button class="btn" onclick="doScan($('#sman').value)">Record</button></div></div></section>
 <section class="tab" id="cards"><div class="panel"><div class="bar noprint"><h2>Participant cards</h2><input id="cq" placeholder="Filter name or ID" oninput="renderCards()"><button class="btn" onclick="print()">Print cards</button></div><div id="cardgrid"></div></div></section>
 </main></div>
@@ -51,10 +53,11 @@ dialog{background:var(--card);color:var(--tx);border:1px solid var(--line);borde
 window.TOK='atok';
 const ENT={
  Participants:{key:'id',f:[['id','ID'],['name','Name'],['category','Category'],['phone','Phone']]},
- Volunteers:{key:'username',f:[['username','Username'],['password','Password'],['name','Name'],['phone','Phone'],['checkpointId','Assigned checkpoint','cp']]},
+ Volunteers:{key:'username',f:[['username','Username'],['password','Password','password'],['name','Name'],['phone','Phone'],['checkpointId','Assigned checkpoint','cp']]},
+ ActivityUsers:{key:'username',f:[['username','Username'],['password','Password','password'],['name','Name'],['phone','Phone'],['activityId','Activity','act']]},
  Checkpoints:{key:'id',f:[['id','ID (e.g. CP1)'],['name','Name'],['order','Order (1 = start, highest = finish)','number']]}};
-const TABS=[['dash','Dashboard'],['Participants','Participants'],['Volunteers','Volunteers'],['Checkpoints','Checkpoints'],['scan','Scan'],['cards','Cards']];
-let S={Participants:[],Volunteers:[],Checkpoints:[],Scans:[]},cur='dash',Q={};
+const TABS=[['dash','Dashboard'],['Participants','Participants'],['Volunteers','Volunteers'],['Checkpoints','Checkpoints'],['act','Activities'],['ActivityUsers','Activity Users'],['scan','Scan'],['cards','Cards']];
+let S={Participants:[],Volunteers:[],Checkpoints:[],Scans:[],ActivityLogs:[],ActivityUsers:[]},cur='dash',Q={};
 $('#nav').innerHTML=TABS.map(t=>`<button data-t="${t[0]}" onclick="show('${t[0]}')">${t[1]}</button>`).join('');
 async function login(){const r=await api('login',{role:'admin',user:$('#u').value.trim(),pass:$('#p').value});
  if(!r.ok)return toast(r.error,'err',4000);localStorage.setItem('atok',r.token);boot()}
@@ -67,7 +70,7 @@ function show(t){cur=t;document.querySelectorAll('.tab').forEach(e=>e.classList.
  t=='scan'?startScan(doScan):stopScan();render()}
 const cpName=id=>(S.Checkpoints.find(c=>c.id==id)||{}).name||id||'–';
 const cps=()=>[...S.Checkpoints].sort((a,b)=>a.order-b.order);
-function render(){if(cur=='dash')renderDash();else if(ENT[cur])renderEnt(cur);else if(cur=='scan')$('#scp').innerHTML=cps().map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');else if(cur=='cards')renderCards()}
+function render(){if(cur=='dash')renderDash();else if(ENT[cur])renderEnt(cur);else if(cur=='act')renderAct();else if(cur=='scan')$('#scp').innerHTML=cps().map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');else if(cur=='cards')renderCards()}
 
 function board(){const c=cps(),end=c[c.length-1],by={};
  S.Scans.forEach(s=>{(by[s.participantId]=by[s.participantId]||{})[s.checkpointId]=s.time});
@@ -87,22 +90,24 @@ async function verify(id,pos){const p=S.Participants.find(x=>x.id==id);const r=a
 
 function renderEnt(n){const E=ENT[n],q=(Q[n]||'').toLowerCase();
  const list=S[n].map((r,i)=>[r,i]).filter(([r])=>JSON.stringify(r).toLowerCase().includes(q));
+ if(n=='Checkpoints')list.sort((a,b)=>a[0].order-b[0].order);
  $('#'+n).innerHTML=`<div class="panel"><div class="bar"><h2>${n} (${S[n].length})</h2><input placeholder="Search" value="${esc(Q[n]||'')}" oninput="Q['${n}']=this.value;renderEnt('${n}')" id="s${n}"><button class="btn" onclick="edit('${n}')">+ Add</button></div>
- <div class="tw"><table><tr>${E.f.map(f=>`<th>${f[1]}</th>`).join('')}<th></th></tr>${list.map(([r,i])=>`<tr>${E.f.map(f=>`<td>${esc(f[2]=='cp'?cpName(r[f[0]]):r[f[0]])}</td>`).join('')}<td>
+ <div class="tw"><table><tr>${E.f.map(f=>`<th>${f[1]}</th>`).join('')}<th></th></tr>${list.map(([r,i])=>`<tr>${E.f.map(f=>`<td>${f[2]=='password'?'••••••':esc(f[2]=='cp'?cpName(r[f[0]]):f[2]=='act'?(ACTS.find(x=>x.id==r[f[0]])||{}).name:r[f[0]])}</td>`).join('')}<td>
  <button class="btn ghost sm" onclick="edit('${n}',${i})">Edit</button> ${n=='Participants'?`<button class="btn ghost sm" onclick="$('#cq').value='${esc(r.id)}';show('cards')">Card</button> `:''}<button class="btn red sm" onclick="del('${n}',${i})">Delete</button></td></tr>`).join('')}</table></div></div>`;
  const s=$('#s'+n);if(s&&q){s.focus();s.setSelectionRange(99,99)}}
 function edit(n,i){const E=ENT[n],r=i==null?{}:S[n][i];
  if(i==null&&n=='Participants')r.id='TUR26-'+String(S.Participants.length+1).padStart(3,'0');
- $('#frm').innerHTML=`<h2>${i==null?'Add':'Edit'} ${n.slice(0,-1).toLowerCase()}</h2>`+E.f.map(f=>`<label>${f[1]}</label>`+(f[2]=='cp'?`<select name="${f[0]}"><option value="">– none –</option>${cps().map(c=>`<option value="${esc(c.id)}" ${r[f[0]]==c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select>`:`<input name="${f[0]}" type="${f[2]||'text'}" value="${esc(r[f[0]])}" ${f[0]==E.key&&i!=null?'readonly':''}>`)).join('')+
+ $('#frm').innerHTML=`<h2>${i==null?'Add':'Edit'} ${n.slice(0,-1).toLowerCase()}</h2>`+E.f.map(f=>`<label>${f[1]}</label>`+(f[2]=='act'?`<select name="${f[0]}">${ACTS.map(x=>`<option value="${x.id}" ${r[f[0]]==x.id?'selected':''}>${x.name}</option>`).join('')}</select>`:f[2]=='cp'?`<select name="${f[0]}"><option value="">– none –</option>${cps().map(c=>`<option value="${esc(c.id)}" ${r[f[0]]==c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select>`:`<input name="${f[0]}" type="${f[2]||'text'}" value="${f[2]=='password'?'':esc(r[f[0]])}" placeholder="${f[2]=='password'&&i!=null?'Leave blank to keep current':''}" autocomplete="new-password" ${f[0]==E.key&&i!=null?'readonly':''}>`)).join('')+
  `<div class="bar"><button class="btn" id="sv">Save</button><button class="btn ghost" type="button" onclick="$('#dlg').close()">Cancel</button></div>`;
  $('#sv').onclick=async()=>{const row={...r};E.f.forEach(f=>row[f[0]]=$(`[name=${f[0]}]`,$('#frm')).value.trim());
   if(!row[E.key])return toast(E.key+' is required','err');
+  if(E.f.some(f=>f[2]=='password')){const pw=row.password;row.password=pw?await hashPw(row.username,pw):(r.password||'');if(!row.password)return toast('Password is required','err')}
   if(i==null&&S[n].some(x=>x[E.key]==row[E.key]))return toast('That '+E.key+' already exists','err');
   const res=await api('save',{sheet:n,row});if(res.ok){$('#dlg').close();toast('Saved');load()}else toast(res.error,'err')};
  $('#dlg').showModal()}
 async function del(n,i){const r=S[n][i];if(!confirm('Delete '+r[ENT[n].key]+'?'))return;const res=await api('remove',{sheet:n,key:r[ENT[n].key]});res.ok?(toast('Deleted'),load()):toast(res.error,'err')}
 
-async function doScan(code){code=(code||'').trim();if(!code)return;const r=await api('scan',{code,checkpointId:$('#scp').value});
+async function doScan(code){code=(code||'').trim();if(!code)return;const r=await api('scan',{code,checkpointId:$('#scp').value,force:$('#force').checked});
  const el=$('#sres');if(!r.ok){el.textContent=r.error;toast(r.error,'err');return beep(0)}
  el.innerHTML=r.status=='ok'?`✔ <b>${esc(r.name)}</b> (${esc(r.id)}) recorded at ${esc(cpName($('#scp').value))}`:esc(r.msg)+(r.name?' – '+esc(r.name):'');
  toast(r.status=='ok'?'Recorded':r.msg,r.status=='ok'?'ok':'warn');beep(r.status=='ok');$('#sman').value='';load()}
@@ -112,5 +117,26 @@ function renderCards(){const q=($('#cq').value||'').toLowerCase();
  $('#cardgrid').innerHTML=l.map((p,i)=>`<div class="pcard"><div class="top"><img src="logo.jpg" alt=""><div><b>Taheri Unity Ride 2026</b>Burhani Guards Division-II</div></div>
  <div class="nm">${esc(p.name)}</div><div class="pid">${esc(p.id)}</div>${p.category?`<div style="font-size:.85rem">${esc(p.category)}</div>`:''}<div class="qr" id="qr${i}"></div><div class="ft">Show this QR at every checkpoint</div></div>`).join('')||'<p>No participants yet.</p>';
  l.forEach((p,i)=>new QRCode(document.getElementById('qr'+i),{text:p.id,width:130,height:130}))}
+let curAct='A1';
+const toL=t=>t?new Date(new Date(t)-new Date(t).getTimezoneOffset()*6e4).toISOString().slice(0,16):'';
+const fromL=v=>v?new Date(v).toISOString():'';
+function renderAct(){const a=ACTS.find(x=>x.id==curAct),logs=S.ActivityLogs.filter(x=>x.activityId==curAct);
+ const nm=id=>(S.Participants.find(p=>p.id==id)||{}).name||'';
+ const dur=(s,e)=>{if(!s||!e)return '–';const d=Math.round((new Date(e)-new Date(s))/1000);return Math.floor(d/60)+'m '+d%60+'s'};
+ $('#act').innerHTML=`<div class="panel"><div class="bar"><h2>Activities</h2>${ACTS.map(x=>`<button class="btn ${x.id==curAct?'':'ghost'} sm" onclick="curAct='${x.id}';renderAct()">${x.name}</button>`).join('')}<button class="btn" onclick="editAct()">+ Add entry</button></div>
+ <p style="color:var(--mu)">${esc(a.name)} – started ${logs.length} · completed ${logs.filter(x=>x.end).length}</p>
+ <div class="tw"><table><tr><th>ID</th><th>Name</th><th>Start</th><th>End</th><th>Duration</th><th>${esc(a.label)}</th><th>Notes</th><th>By</th><th></th></tr>
+ ${logs.map(x=>`<tr><td>${esc(x.participantId)}</td><td>${esc(nm(x.participantId))}</td><td>${fmt(x.start)}</td><td>${fmt(x.end)}</td><td>${dur(x.start,x.end)}</td><td>${esc(x.result)}</td><td>${esc(x.notes)}</td><td>${esc(x.by)}</td>
+ <td><button class="btn ghost sm" onclick="editAct('${esc(x.participantId)}')">Edit</button> <button class="btn red sm" onclick="delAct('${esc(x.participantId)}')">Delete</button></td></tr>`).join('')}</table></div></div>`}
+function editAct(pid){const a=ACTS.find(x=>x.id==curAct),x=S.ActivityLogs.find(l=>l.activityId==curAct&&l.participantId==pid)||{};
+ $('#frm').innerHTML=`<h2>${pid?'Edit':'Add'} – ${esc(a.name)}</h2><label>Participant ID</label><input name="pid" list="pl" value="${esc(x.participantId||'')}" ${pid?'readonly':''}><datalist id="pl">${S.Participants.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}`).join('')}</datalist>
+ <label>Start time</label><input name="st" type="datetime-local" value="${toL(x.start)}"><label>End time</label><input name="en" type="datetime-local" value="${toL(x.end)}">
+ <label>${esc(a.label)}</label><input name="rs" type="number" step="any" value="${esc(x.result||'')}"><label>Notes</label><input name="nt" value="${esc(x.notes||'')}">
+ <div class="bar"><button class="btn" id="sv">Save</button><button class="btn ghost" type="button" onclick="$('#dlg').close()">Cancel</button></div>`;
+ $('#sv').onclick=async()=>{const g=n=>$(`[name=${n}]`,$('#frm')).value.trim(),id=g('pid');
+  if(!S.Participants.some(p=>p.id==id))return toast('Unknown participant ID','err');
+  const res=await api('actSave',{row:{participantId:id,activityId:curAct,start:fromL(g('st')),end:fromL(g('en')),result:g('rs'),notes:g('nt')}});
+  if(res.ok){$('#dlg').close();toast('Saved');load()}else toast(res.error,'err')};$('#dlg').showModal()}
+async function delAct(pid){if(!confirm('Delete this entry?'))return;const r=await api('actRemove',{participantId:pid,activityId:curAct});r.ok?(toast('Deleted'),load()):toast(r.error,'err')}
 boot();
 </script></body></html>
