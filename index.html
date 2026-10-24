@@ -26,7 +26,7 @@
 <script>
 window.TOK='vtok';let busy=false,ROLE='volunteer',A=null,curCode='';
 async function login(){const u=$('#u').value.trim();const r=await api('login',{role:'volunteer',user:u,pass:await hashPw(u,$('#p').value)});
-  if(!r.ok)return toast(r.error,'err',4000);localStorage.setItem('vtok',r.token);localStorage.setItem('vrole',r.session.role);boot()}
+  if(!r.ok)return toast(r.error,'err',4000);if(r.session.role!=='volunteer')return toast('Activity staff: please use activity.html','err',5000);localStorage.setItem('vtok',r.token);localStorage.setItem('vrole',r.session.role);boot()}
 function logout(){localStorage.removeItem('vtok');localStorage.removeItem('vrole');stopScan();location.reload()}
 async function refresh(){const r=await api('state');if(r.error==='auth')return logout();if(!r.ok)return toast(r.error,'err');
   if(ROLE=='activity'){A=ACTS.find(x=>x.id==r.activityId)||ACTS[0];$('#cpn').textContent=A.name;$('#cnt').textContent=r.started;$('#tot').textContent=r.completed;
