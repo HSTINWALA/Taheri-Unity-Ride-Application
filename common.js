@@ -15,3 +15,6 @@ async function startScan(onCode){
   catch(e){toast('Camera blocked. Allow camera access (page must be on HTTPS).','err',5000)}
 }
 async function stopScan(){if(_qr&&_qr.isScanning)await _qr.stop()}
+// SHA-256 hash (salted with username) so the plain password is never sent or stored
+async function hashPw(user,pw){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('TUR26|'+String(user).toLowerCase()+'|'+pw));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
+const ACTS=[{id:'A1',name:'Weight Activity',label:'Weight (kg)'},{id:'A2',name:'Clues Activity',label:'Clues completed'}];
