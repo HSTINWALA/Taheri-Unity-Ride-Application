@@ -21,9 +21,10 @@ dialog{background:var(--card);color:var(--tx);border:1px solid var(--line);borde
 .pcard .hd{background:#14213d;color:#fff;display:flex;align-items:center;justify-content:space-between;gap:2mm;padding:3mm;height:25mm;border-bottom:1.2mm solid #f08a24;flex:none}
 .pcard .hd img{width:17mm;height:17mm;border-radius:50%;object-fit:cover;flex:none;background:#fff}
 .pcard .ev{flex:1;font-size:9.5pt;font-weight:800;line-height:1.2}.pcard .ev small{display:block;color:#f08a24;font-size:7pt;font-weight:600;margin-top:1mm}
-.pcard .nm{font-size:15pt;font-weight:800;margin:4mm 3mm 0;line-height:1.15;min-height:11mm;display:flex;align-items:center;justify-content:center}
-.pcard .its{font-size:9pt;color:#444;min-height:5mm}
-.pcard .qr{margin:3mm auto 0;width:46mm;height:46mm}.pcard .qr img{width:100%;height:100%}
+.pcard .nm{font-size:20pt;font-weight:800;margin:3mm 3mm 0;line-height:1.1;min-height:11mm;display:flex;align-items:center;justify-content:center}
+.pcard .its{font-size:15pt;font-weight:700;margin-top:1mm;min-height:6mm}
+.pcard .ag{font-size:10pt;color:#444;margin-top:.5mm;min-height:4.5mm}
+.pcard .qr{margin:2mm auto 0;width:46mm;height:46mm}.pcard .qr img{width:100%;height:100%}
 .pcard .pid{font:700 13pt monospace;color:#c96a0a;margin-top:2mm}
 .pcard .ft{margin-top:auto;background:#f08a24;font-size:7.5pt;padding:2mm;font-weight:700;color:#1b1205}
 @media print{@page{size:A4;margin:8mm}header,nav,.noprint,#toast{display:none!important}body{background:#fff}main{padding:0}.panel{border:0;background:none;padding:0}#cardgrid{grid-template-columns:repeat(2,85mm);gap:6mm}}
@@ -121,7 +122,7 @@ async function doScan(code){code=(code||'').trim();if(!code)return;const r=await
 
 function cardEl(p){const d=document.createElement('div');d.className='pcard';
  d.innerHTML=`<div class="hd"><img src="logo.jpg" alt=""><div class="ev">TAHERI UNITY RIDE 2026<small>Burhani Guards Division-II</small></div><img src="bg-logo.png" alt="" onerror="this.style.visibility='hidden'"></div>
- <div class="nm">${esc(p.name)}</div><div class="its">${p.its?'ITS: '+esc(p.its):''}</div><div class="qr"></div><div class="pid">${esc(p.id)}</div><div class="ft">Show this QR at every checkpoint</div>`;
+ <div class="nm">${esc(p.name)}</div><div class="its">${esc(p.its||'')}</div><div class="ag">${[p.age?'Age '+esc(p.age):'',esc(p.gender||'')].filter(Boolean).join(' · ')}</div><div class="qr"></div><div class="pid">${esc(p.id)}</div><div class="ft">Show this QR at every checkpoint</div>`;
  const t=document.createElement('div');new QRCode(t,{text:p.id,width:400,height:400,correctLevel:QRCode.CorrectLevel.M});
  const im=new Image();im.src=t.querySelector('canvas').toDataURL('image/png');d.querySelector('.qr').appendChild(im);return d}
 async function cardPNG(p){const el=cardEl(p),w=document.createElement('div');w.style.cssText='position:fixed;left:-9999px;top:0';w.appendChild(el);document.body.appendChild(w);
