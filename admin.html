@@ -15,13 +15,18 @@ nav button.on{background:var(--ac);color:#1b1205;font-weight:700}
 .pod .nm{font-size:1.2rem;font-weight:700}
 .cpbar{display:flex;align-items:center;gap:10px;margin:6px 0}.cpbar span{width:140px;font-size:.85rem}.cpbar i{display:block;height:14px;border-radius:7px;background:var(--sky);min-width:2px}
 dialog{background:var(--card);color:var(--tx);border:1px solid var(--line);border-radius:12px;width:min(420px,92vw)}dialog::backdrop{background:#000a}
-#cardgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
-.pcard{background:#fff;color:#111;border-radius:14px;border:2px solid #14213d;overflow:hidden;text-align:center;break-inside:avoid}
-.pcard .top{background:#14213d;color:#fff;display:flex;align-items:center;gap:10px;padding:8px 12px;text-align:left;font-size:.85rem;line-height:1.2}
-.pcard .top img{width:42px;height:42px;border-radius:50%}.pcard .top b{color:#f08a24;display:block}
-.pcard .nm{font-size:1.4rem;font-weight:800;margin-top:10px}.pcard .pid{font:700 1.1rem monospace;color:#c96a0a;letter-spacing:1px}
-.pcard .qr{display:flex;justify-content:center;padding:10px}.pcard .ft{background:#f08a24;font-size:.75rem;padding:4px;font-weight:700}
-@media print{header,nav,.noprint,#toast{display:none!important}body{background:#fff}main{padding:0}.panel{border:0;background:none;padding:0}#cardgrid{grid-template-columns:repeat(2,1fr)}}
+#cardgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(85mm,max-content));gap:16px;justify-content:center}
+.cwrap{display:flex;flex-direction:column;gap:8px;align-items:center;break-inside:avoid}
+.pcard{width:85mm;height:130mm;background:#fff;color:#111;border:.4mm solid #14213d;border-radius:4mm;overflow:hidden;display:flex;flex-direction:column;text-align:center;font-family:"Trebuchet MS","Segoe UI",Arial,sans-serif}
+.pcard .hd{background:#14213d;color:#fff;display:flex;align-items:center;justify-content:space-between;gap:2mm;padding:3mm;height:25mm;border-bottom:1.2mm solid #f08a24;flex:none}
+.pcard .hd img{width:17mm;height:17mm;border-radius:50%;object-fit:cover;flex:none;background:#fff}
+.pcard .ev{flex:1;font-size:9.5pt;font-weight:800;line-height:1.2}.pcard .ev small{display:block;color:#f08a24;font-size:7pt;font-weight:600;margin-top:1mm}
+.pcard .nm{font-size:15pt;font-weight:800;margin:4mm 3mm 0;line-height:1.15;min-height:11mm;display:flex;align-items:center;justify-content:center}
+.pcard .its{font-size:9pt;color:#444;min-height:5mm}
+.pcard .qr{margin:3mm auto 0;width:46mm;height:46mm}.pcard .qr img{width:100%;height:100%}
+.pcard .pid{font:700 13pt monospace;color:#c96a0a;margin-top:2mm}
+.pcard .ft{margin-top:auto;background:#f08a24;font-size:7.5pt;padding:2mm;font-weight:700;color:#1b1205}
+@media print{@page{size:A4;margin:8mm}header,nav,.noprint,#toast{display:none!important}body{background:#fff}main{padding:0}.panel{border:0;background:none;padding:0}#cardgrid{grid-template-columns:repeat(2,85mm);gap:6mm}}
 </style></head><body>
 <header class="noprint"><img src="logo.jpg" alt=""><h1>Taheri Unity Ride 2026<small>Admin portal – Burhani Guards Division-II</small></h1><button class="btn ghost sm" id="out" style="display:none" onclick="logout()">Log out</button></header>
 
@@ -41,18 +46,19 @@ dialog{background:var(--card);color:var(--tx);border:1px solid var(--line);borde
 <section class="tab" id="scan"><div class="panel"><h2>Scan as admin (any checkpoint)</h2>
 <label>Checkpoint</label><select id="scp"></select><label style="display:block;margin-bottom:10px"><input type="checkbox" id="force" style="width:auto;margin:0 6px 0 0">Override checkpoint sequence (allow skipping previous checkpoint)</label><div id="reader"></div><div id="sres" style="text-align:center;margin:12px 0;font-size:1.1rem"></div>
 <div class="bar"><input id="sman" placeholder="Or type participant ID" style="flex:1"><button class="btn" onclick="doScan($('#sman').value)">Record</button></div></div></section>
-<section class="tab" id="cards"><div class="panel"><div class="bar noprint"><h2>Participant cards</h2><input id="cq" placeholder="Filter name or ID" oninput="renderCards()"><button class="btn" onclick="print()">Print cards</button></div><div id="cardgrid"></div></div></section>
+<section class="tab" id="cards"><div class="panel"><div class="bar noprint"><h2>Participant cards</h2><input id="cq" placeholder="Filter name or ID" oninput="renderCards()"><button class="btn ghost" onclick="allPNG()">Download all PNG</button><button class="btn" onclick="print()">Print cards</button></div><div id="cardgrid"></div></div></section>
 </main></div>
 <dialog id="dlg"><form method="dialog" id="frm" onsubmit="return false"></form></dialog>
 <div id="toast"></div>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="common.js"></script>
 <script>
 window.TOK='atok';
 const ENT={
- Participants:{key:'id',f:[['id','ID'],['name','Name'],['ITS','Category'],['AGE','Phone']]},
+ Participants:{key:'id',f:[['id','ID'],['name','Name'],['its','ITS'],['age','Age','number'],['phone','Mobile'],['gender','Gender','sel',['Male','Female']]]},
  Volunteers:{key:'username',f:[['username','Username'],['password','Password','password'],['name','Name'],['phone','Phone'],['checkpointId','Assigned checkpoint','cp']]},
  ActivityUsers:{key:'username',f:[['username','Username'],['password','Password','password'],['name','Name'],['phone','Phone'],['activityId','Activity','act']]},
  Checkpoints:{key:'id',f:[['id','ID (e.g. CP1)'],['name','Name'],['order','Order (1 = start, highest = finish)','number']]}};
@@ -93,14 +99,15 @@ function renderEnt(n){const E=ENT[n],q=(Q[n]||'').toLowerCase();
  if(n=='Checkpoints')list.sort((a,b)=>a[0].order-b[0].order);
  $('#'+n).innerHTML=`<div class="panel"><div class="bar"><h2>${n} (${S[n].length})</h2><input placeholder="Search" value="${esc(Q[n]||'')}" oninput="Q['${n}']=this.value;renderEnt('${n}')" id="s${n}"><button class="btn" onclick="edit('${n}')">+ Add</button></div>
  <div class="tw"><table><tr>${E.f.map(f=>`<th>${f[1]}</th>`).join('')}<th></th></tr>${list.map(([r,i])=>`<tr>${E.f.map(f=>`<td>${f[2]=='password'?'••••••':esc(f[2]=='cp'?cpName(r[f[0]]):f[2]=='act'?(ACTS.find(x=>x.id==r[f[0]])||{}).name:r[f[0]])}</td>`).join('')}<td>
- <button class="btn ghost sm" onclick="edit('${n}',${i})">Edit</button> ${n=='Participants'?`<button class="btn ghost sm" onclick="$('#cq').value='${esc(r.id)}';show('cards')">Card</button> `:''}<button class="btn red sm" onclick="del('${n}',${i})">Delete</button></td></tr>`).join('')}</table></div></div>`;
+ <button class="btn ghost sm" onclick="edit('${n}',${i})">Edit</button> ${n=='Participants'?`<button class="btn ghost sm" onclick="$('#cq').value='${esc(r.id)}';show('cards')">Card</button> <button class="btn ghost sm" onclick="cardPNG(S.Participants[${i}])">PNG</button> `:''}<button class="btn red sm" onclick="del('${n}',${i})">Delete</button></td></tr>`).join('')}</table></div></div>`;
  const s=$('#s'+n);if(s&&q){s.focus();s.setSelectionRange(99,99)}}
 function edit(n,i){const E=ENT[n],r=i==null?{}:S[n][i];
  if(i==null&&n=='Participants')r.id='TUR26-'+String(S.Participants.length+1).padStart(3,'0');
- $('#frm').innerHTML=`<h2>${i==null?'Add':'Edit'} ${n.slice(0,-1).toLowerCase()}</h2>`+E.f.map(f=>`<label>${f[1]}</label>`+(f[2]=='act'?`<select name="${f[0]}">${ACTS.map(x=>`<option value="${x.id}" ${r[f[0]]==x.id?'selected':''}>${x.name}</option>`).join('')}</select>`:f[2]=='cp'?`<select name="${f[0]}"><option value="">– none –</option>${cps().map(c=>`<option value="${esc(c.id)}" ${r[f[0]]==c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select>`:`<input name="${f[0]}" type="${f[2]||'text'}" value="${f[2]=='password'?'':esc(r[f[0]])}" placeholder="${f[2]=='password'&&i!=null?'Leave blank to keep current':''}" autocomplete="new-password" ${f[0]==E.key&&i!=null?'readonly':''}>`)).join('')+
+ $('#frm').innerHTML=`<h2>${i==null?'Add':'Edit'} ${n.slice(0,-1).toLowerCase()}</h2>`+E.f.map(f=>`<label>${f[1]}</label>`+(f[2]=='sel'?`<select name="${f[0]}"><option value="">– select –</option>${f[3].map(o=>`<option ${r[f[0]]==o?'selected':''}>${o}</option>`).join('')}</select>`:f[2]=='act'?`<select name="${f[0]}">${ACTS.map(x=>`<option value="${x.id}" ${r[f[0]]==x.id?'selected':''}>${x.name}</option>`).join('')}</select>`:f[2]=='cp'?`<select name="${f[0]}"><option value="">– none –</option>${cps().map(c=>`<option value="${esc(c.id)}" ${r[f[0]]==c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select>`:`<input name="${f[0]}" type="${f[2]||'text'}" value="${f[2]=='password'?'':esc(r[f[0]])}" placeholder="${f[2]=='password'&&i!=null?'Leave blank to keep current':''}" autocomplete="new-password" ${f[0]==E.key&&i!=null?'readonly':''}>`)).join('')+
  `<div class="bar"><button class="btn" id="sv">Save</button><button class="btn ghost" type="button" onclick="$('#dlg').close()">Cancel</button></div>`;
  $('#sv').onclick=async()=>{const row={...r};E.f.forEach(f=>row[f[0]]=$(`[name=${f[0]}]`,$('#frm')).value.trim());
   if(!row[E.key])return toast(E.key+' is required','err');
+  if(n=='Participants'&&!row.name)return toast('Name is required','err');
   if(E.f.some(f=>f[2]=='password')){const pw=row.password;row.password=pw?await hashPw(row.username,pw):(r.password||'');if(!row.password)return toast('Password is required','err')}
   if(i==null&&S[n].some(x=>x[E.key]==row[E.key]))return toast('That '+E.key+' already exists','err');
   const res=await api('save',{sheet:n,row});if(res.ok){$('#dlg').close();toast('Saved');load()}else toast(res.error,'err')};
@@ -112,11 +119,21 @@ async function doScan(code){code=(code||'').trim();if(!code)return;const r=await
  el.innerHTML=r.status=='ok'?`✔ <b>${esc(r.name)}</b> (${esc(r.id)}) recorded at ${esc(cpName($('#scp').value))}`:esc(r.msg)+(r.name?' – '+esc(r.name):'');
  toast(r.status=='ok'?'Recorded':r.msg,r.status=='ok'?'ok':'warn');beep(r.status=='ok');$('#sman').value='';load()}
 
-function renderCards(){const q=($('#cq').value||'').toLowerCase();
- const l=S.Participants.filter(p=>(p.id+' '+p.name).toLowerCase().includes(q));
- $('#cardgrid').innerHTML=l.map((p,i)=>`<div class="pcard"><div class="top"><img src="logo.jpg" alt=""><div><b>Taheri Unity Ride 2026</b>Burhani Guards Division-II</div></div>
- <div class="nm">${esc(p.name)}</div><div class="pid">${esc(p.id)}</div>${p.category?`<div style="font-size:.85rem">${esc(p.category)}</div>`:''}<div class="qr" id="qr${i}"></div><div class="ft">Show this QR at every checkpoint</div></div>`).join('')||'<p>No participants yet.</p>';
- l.forEach((p,i)=>new QRCode(document.getElementById('qr'+i),{text:p.id,width:130,height:130}))}
+function cardEl(p){const d=document.createElement('div');d.className='pcard';
+ d.innerHTML=`<div class="hd"><img src="logo.jpg" alt=""><div class="ev">TAHERI UNITY RIDE 2026<small>Burhani Guards Division-II</small></div><img src="bg-logo.png" alt="" onerror="this.style.visibility='hidden'"></div>
+ <div class="nm">${esc(p.name)}</div><div class="its">${p.its?'ITS: '+esc(p.its):''}</div><div class="qr"></div><div class="pid">${esc(p.id)}</div><div class="ft">Show this QR at every checkpoint</div>`;
+ const t=document.createElement('div');new QRCode(t,{text:p.id,width:400,height:400,correctLevel:QRCode.CorrectLevel.M});
+ const im=new Image();im.src=t.querySelector('canvas').toDataURL('image/png');d.querySelector('.qr').appendChild(im);return d}
+async function cardPNG(p){const el=cardEl(p),w=document.createElement('div');w.style.cssText='position:fixed;left:-9999px;top:0';w.appendChild(el);document.body.appendChild(w);
+ try{await Promise.all([...el.querySelectorAll('img')].map(i=>i.decode().catch(()=>{})));
+  const c=await html2canvas(el,{scale:300/96,backgroundColor:'#ffffff',useCORS:true});   // 85x130 mm at 300 dpi
+  const a=document.createElement('a');a.download=p.id+'_'+String(p.name).replace(/[^\w]+/g,'_')+'.png';a.href=c.toDataURL('image/png');a.click()}
+ catch(e){toast('PNG failed: '+e.message,'err')}finally{w.remove()}}
+function cardList(){const q=($('#cq').value||'').toLowerCase();return S.Participants.filter(p=>(p.id+' '+p.name+' '+(p.its||'')).toLowerCase().includes(q))}
+async function allPNG(){for(const p of cardList()){await cardPNG(p);await new Promise(r=>setTimeout(r,400))}}
+function renderCards(){const g=$('#cardgrid'),l=cardList();g.innerHTML='';if(!l.length){g.innerHTML='<p>No participants yet.</p>';return}
+ l.forEach(p=>{const w=document.createElement('div');w.className='cwrap';w.appendChild(cardEl(p));
+  const b=document.createElement('button');b.className='btn sm noprint';b.textContent='⬇ Download PNG';b.onclick=()=>cardPNG(p);w.appendChild(b);g.appendChild(w)})}
 let curAct='A1';
 const toL=t=>t?new Date(new Date(t)-new Date(t).getTimezoneOffset()*6e4).toISOString().slice(0,16):'';
 const fromL=v=>v?new Date(v).toISOString():'';

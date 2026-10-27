@@ -3,7 +3,7 @@
  *  After ANY edit: Deploy > Manage deployments > Edit > New version > Deploy. */
 const ADMIN = {user: 'admin', pass: 'ChangeMe123'};   // <-- change this
 const COLS = {
-  Participants:  ['id','name','category','phone','verifiedPos'],
+  Participants:  ['id','name','category','phone','verifiedPos','its','age','gender'],   // phone = Mobile
   Volunteers:    ['username','password','name','phone','checkpointId'],
   Checkpoints:   ['id','name','order'],
   Scans:         ['time','participantId','checkpointId','by'],
@@ -11,8 +11,12 @@ const COLS = {
   ActivityLogs:  ['participantId','activityId','start','end','result','notes','by']
 };
 const val_ = v => v instanceof Date ? v.toISOString() : String(v);
-const sh_ = n => { const ss = SpreadsheetApp.getActiveSpreadsheet(); let s = ss.getSheetByName(n);
-  if (!s) { s = ss.insertSheet(n); s.appendRow(COLS[n]); s.setFrozenRows(1); } return s; };
+const TEXT_COLS = ['id','its','phone','username'];           // stored as text so leading zeros are kept
+const fmt_ = (s, cols) => cols.forEach((c,i) => { if (TEXT_COLS.indexOf(c) >= 0) s.getRange(1, i + 1, s.getMaxRows(), 1).setNumberFormat('@'); });
+const sh_ = n => { const ss = SpreadsheetApp.getActiveSpreadsheet(); let s = ss.getSheetByName(n); const cols = COLS[n];
+  if (!s) { s = ss.insertSheet(n); s.appendRow(cols); s.setFrozenRows(1); fmt_(s, cols); }
+  else if (s.getLastColumn() < cols.length) { s.getRange(1, 1, 1, cols.length).setValues([cols]); fmt_(s, cols); }   // adds new columns to an existing sheet
+  return s; };
 const rows_ = n => { const v = sh_(n).getDataRange().getValues(); const h = v.shift();
   return v.filter(r => r[0] !== '').map(r => Object.fromEntries(h.map((k,i) => [k, val_(r[i])]))); };
 const out_ = o => ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
