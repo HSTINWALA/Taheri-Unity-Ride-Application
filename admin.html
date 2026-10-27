@@ -18,9 +18,9 @@ dialog{background:var(--card);color:var(--tx);border:1px solid var(--line);borde
 #cardgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(85mm,max-content));gap:16px;justify-content:center}
 .cwrap{display:flex;flex-direction:column;gap:8px;align-items:center;break-inside:avoid}
 .pcard{width:85mm;height:130mm;background:#fff;color:#111;border:.4mm solid #14213d;border-radius:4mm;overflow:hidden;display:flex;flex-direction:column;text-align:center;font-family:"Trebuchet MS","Segoe UI",Arial,sans-serif}
-.pcard .hd{background:#14213d;color:#fff;display:flex;align-items:center;justify-content:space-between;gap:2mm;padding:3mm;height:25mm;border-bottom:1.2mm solid #f08a24;flex:none}
+.pcard .hd{background:#14213d;color:#fff;display:flex;align-items:center;gap:3mm;padding:3mm 4mm;height:25mm;border-bottom:1.2mm solid #f08a24;flex:none}
 .pcard .hd img{width:17mm;height:17mm;border-radius:50%;object-fit:cover;flex:none;background:#fff}
-.pcard .ev{flex:1;font-size:9.5pt;font-weight:800;line-height:1.2}.pcard .ev small{display:block;color:#f08a24;font-size:7pt;font-weight:600;margin-top:1mm}
+.pcard .ev{flex:1;min-width:0;font-size:10.5pt;font-weight:800;line-height:1.2;white-space:nowrap}.pcard .ev small{display:block;color:#f08a24;font-size:7.5pt;font-weight:600;margin-top:1mm}
 .pcard .nm{font-size:20pt;font-weight:800;margin:3mm 3mm 0;line-height:1.1;min-height:11mm;display:flex;align-items:center;justify-content:center}
 .pcard .its{font-size:15pt;font-weight:700;margin-top:1mm;min-height:6mm}
 .pcard .ag{font-size:10pt;color:#444;margin-top:.5mm;min-height:4.5mm}
@@ -121,7 +121,7 @@ async function doScan(code){code=(code||'').trim();if(!code)return;const r=await
  toast(r.status=='ok'?'Recorded':r.msg,r.status=='ok'?'ok':'warn');beep(r.status=='ok');$('#sman').value='';load()}
 
 function cardEl(p){const d=document.createElement('div');d.className='pcard';
- d.innerHTML=`<div class="hd"><img src="logo.jpg" alt=""><div class="ev">TAHERI UNITY RIDE 2026<small>Burhani Guards Division-II</small></div><div style="width:17mm;flex:none"></div></div>
+ d.innerHTML=`<div class="hd"><img src="logo.jpg" alt=""><div class="ev">TAHERI UNITY RIDE 2026<small>Burhani Guards Division-II</small></div></div>
  <div class="nm">${esc(p.name)}</div><div class="its">${esc(p.its||'')}</div><div class="ag">${[p.age?'Age '+esc(p.age):'',esc(p.gender||'')].filter(Boolean).join(' · ')}</div><div class="qr"></div><div class="pid">${esc(p.id)}</div><div class="ft">Show this QR at every checkpoint</div>`;
  const t=document.createElement('div');new QRCode(t,{text:p.id,width:400,height:400,correctLevel:QRCode.CorrectLevel.M});
  const im=new Image();im.src=t.querySelector('canvas').toDataURL('image/png');d.querySelector('.qr').appendChild(im);return d}
