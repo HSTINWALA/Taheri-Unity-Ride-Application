@@ -113,7 +113,7 @@ function edit(n,i){const E=ENT[n],r=i==null?{}:S[n][i];
   if(i==null&&S[n].some(x=>x[E.key]==row[E.key]))return toast('That '+E.key+' already exists','err');
   const res=await api('save',{sheet:n,row});if(res.ok){$('#dlg').close();toast('Saved');load()}else toast(res.error,'err')};
  $('#dlg').showModal()}
-async function del(n,i){const r=S[n][i];if(!confirm('Delete '+r[ENT[n].key]+'?'))return;const res=await api('remove',{sheet:n,key:r[ENT[n].key]});res.ok?(toast('Deleted'),load()):toast(res.error,'err')}
+async function del(n,i){const r=S[n][i];if(!confirm('Delete '+r[ENT[n].key]+'?'+(n=='Participants'?'\n\nAll checkpoint scans and activity records of this participant will also be deleted.':'')))return;const res=await api('remove',{sheet:n,key:r[ENT[n].key]});res.ok?(toast('Deleted'),load()):toast(res.error,'err')}
 
 async function doScan(code){code=(code||'').trim();if(!code)return;const r=await api('scan',{code,checkpointId:$('#scp').value,force:$('#force').checked});
  const el=$('#sres');if(!r.ok){el.textContent=r.error;toast(r.error,'err');return beep(0)}
@@ -121,7 +121,7 @@ async function doScan(code){code=(code||'').trim();if(!code)return;const r=await
  toast(r.status=='ok'?'Recorded':r.msg,r.status=='ok'?'ok':'warn');beep(r.status=='ok');$('#sman').value='';load()}
 
 function cardEl(p){const d=document.createElement('div');d.className='pcard';
- d.innerHTML=`<div class="hd"><img src="logo.jpg" alt=""><div class="ev">TAHERI UNITY RIDE 2026<small>Burhani Guards Pakistan <br> Division-II</small></div></div>
+ d.innerHTML=`<div class="hd"><img src="logo.jpg" alt=""><div class="ev">TAHERI UNITY RIDE 2026<small>Burhani Guards Division-II</small></div></div>
  <div class="nm">${esc(p.name)}</div><div class="its">${esc(p.its||'')}</div><div class="ag">${[p.age?'Age '+esc(p.age):'',esc(p.gender||'')].filter(Boolean).join(' · ')}</div><div class="qr"></div><div class="pid">${esc(p.id)}</div><div class="ft">Show this QR at every checkpoint</div>`;
  const t=document.createElement('div');new QRCode(t,{text:p.id,width:400,height:400,correctLevel:QRCode.CorrectLevel.M});
  const im=new Image();im.src=t.querySelector('canvas').toDataURL('image/png');d.querySelector('.qr').appendChild(im);return d}

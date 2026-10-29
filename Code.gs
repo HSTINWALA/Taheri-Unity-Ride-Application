@@ -104,6 +104,12 @@ function handle_(p) {
       for (let i = v.length - 1; i > 0; i--) if (v[i][1] === p.participantId && v[i][2] === p.checkpointId) sheet.deleteRow(i + 1);
       return {ok:true};
     }
+    if (p.sheet === 'Participants') {            // cascade: remove every related entry of this participant
+      const sc = sh_('Scans'), sv = sc.getDataRange().getValues();
+      for (let i = sv.length - 1; i > 0; i--) if (String(sv[i][1]) === String(p.key)) sc.deleteRow(i + 1);
+      const al = sh_('ActivityLogs'), av = al.getDataRange().getValues();
+      for (let i = av.length - 1; i > 0; i--) if (String(av[i][0]) === String(p.key)) al.deleteRow(i + 1);
+    }
     for (let i = v.length - 1; i > 0; i--) if (String(v[i][0]) === String(p.key)) sheet.deleteRow(i + 1);
     return {ok:true};
   }
