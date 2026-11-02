@@ -29,7 +29,7 @@ async function login(){const u=$('#u').value.trim();const r=await api('login',{r
   if(!r.ok)return toast(r.error,'err',4000);if(r.session.role!=='activity')return toast('This page is for activity staff. Volunteers use index.html','err',5000);localStorage.setItem('ktok',r.token);localStorage.setItem('krole',r.session.role);boot()}
 function logout(){localStorage.removeItem('ktok');localStorage.removeItem('krole');stopScan();location.reload()}
 async function refresh(){const r=await api('state');if(r.error==='auth')return logout();if(!r.ok)return toast(r.error,'err');
-  if(ROLE=='activity'){A=ACTS.find(x=>x.id==r.activityId)||ACTS[0];$('#cpn').textContent=A.name;$('#cnt').textContent=r.started;$('#tot').textContent=r.completed;
+  if(ROLE=='activity'){A=ACTS.find(x=>x.id==r.activityId)||ACTS[0];const md=String(r.mode||'').toLowerCase();$('#cpn').textContent=A.name+(md=='start'?' – START':md=='end'?' – END':'');$('#cnt').textContent=r.started;$('#tot').textContent=r.completed;
     $('#rec').innerHTML=`<tr><th>ID</th><th>Name</th><th>Start</th><th>End</th><th>${esc(A.label)}</th></tr>`+r.recent.map(x=>`<tr><td>${esc(x.id)}</td><td>${esc(x.name)}</td><td>${fmt(x.start)}</td><td>${fmt(x.end)}</td><td>${esc(x.result||'–')}</td></tr>`).join('')}
   else{$('#cpn').textContent=r.cp?r.cp.name:'Not assigned';$('#cnt').textContent=r.count;$('#tot').textContent=r.total;
     $('#rep').innerHTML='<tr><th>Checkpoint</th><th>Participants scanned</th></tr>'+r.report.map(x=>`<tr class="${r.cp&&x.id==r.cp.id?'me':''}"><td>${esc(x.name)}</td><td>${x.count} / ${r.total}</td></tr>`).join('');
@@ -37,7 +37,7 @@ async function refresh(){const r=await api('state');if(r.error==='auth')return l
 async function boot(){if(!localStorage.getItem('ktok'))return;ROLE=localStorage.getItem('krole')||'volunteer';
   $('#login').style.display='none';$('#app').style.display='block';$('#out').style.display='';
   if(ROLE=='activity'){$('#lbl').textContent='Your activity';$('#l1').textContent='started';$('#l2').textContent='completed';$('#repP').style.display='none'}
-  await refresh();startScan(ROLE=='activity'?actSubmit:submit)}
+  await refresh();startScan(ROLE=='activity'?actSubmit:submit);setInterval(()=>{if(!document.hidden)refresh()},10000)}
 async function submit(code){if(busy)return;busy=true;const r=await api('scan',{code});busy=false;
   if(r.error==='auth')return logout();const el=$('#res');el.style.display='block';
   if(!r.ok){el.className='res err';el.textContent=r.error;beep(0)}
@@ -49,7 +49,7 @@ async function actSubmit(code){if(busy)return;busy=true;const r=await api('actSc
   else if(r.status==='started'){el.className='res ok';el.innerHTML=`▶ Start recorded ${fmt(r.time)}<b>${esc(r.name)}</b>${esc(r.id)}`;beep(1);refresh()}
   else if(r.status=='open'){el.className='res warn';el.innerHTML=`Started ${fmt(r.start)} – enter result to finish<b>${esc(r.name)}</b>${esc(r.id)}`;
     curCode=r.id;$('#endlbl').textContent=A.label;$('#endbox').style.display='block';$('#rv').focus();beep(1)}
-  else{el.className='res '+(r.status=='done'?'warn':'err');el.innerHTML=`${esc(r.msg)}<b>${esc(r.name||'')}</b>${r.result?esc(A.label)+': '+esc(r.result):''}`;beep(0)}}
+  else{el.className='res '+((r.status=='done'||r.status=='dup')?'warn':'err');el.innerHTML=`${esc(r.msg)}<b>${esc(r.name||'')}</b>${r.result?esc(A.label)+': '+esc(r.result):''}`;beep(0)}}
 async function endSave(){const v=$('#rv').value;if(v==='')return toast('Enter '+A.label,'err');
   const r=await api('actEnd',{code:curCode,result:v,notes:$('#rn').value});
   if(r.ok){toast('Finished ✔');$('#endbox').style.display='none';$('#res').style.display='none';$('#rv').value='';$('#rn').value='';refresh()}else toast(r.error,'err')}

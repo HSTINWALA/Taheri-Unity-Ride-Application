@@ -37,7 +37,7 @@ async function refresh(){const r=await api('state');if(r.error==='auth')return l
 async function boot(){if(!localStorage.getItem('vtok'))return;ROLE=localStorage.getItem('vrole')||'volunteer';
   $('#login').style.display='none';$('#app').style.display='block';$('#out').style.display='';
   if(ROLE=='activity'){$('#lbl').textContent='Your activity';$('#l1').textContent='started';$('#l2').textContent='completed';$('#repP').style.display='none'}
-  await refresh();startScan(ROLE=='activity'?actSubmit:submit)}
+  await refresh();startScan(ROLE=='activity'?actSubmit:submit);setInterval(()=>{if(!document.hidden)refresh()},10000)}
 async function submit(code){if(busy)return;busy=true;const r=await api('scan',{code});busy=false;
   if(r.error==='auth')return logout();const el=$('#res');el.style.display='block';
   if(!r.ok){el.className='res err';el.textContent=r.error;beep(0)}

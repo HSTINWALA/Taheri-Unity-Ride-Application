@@ -7,8 +7,8 @@ const COLS = {
   Volunteers:    ['username','password','name','phone','checkpointId'],
   Checkpoints:   ['id','name','order'],
   Scans:         ['time','participantId','checkpointId','by'],
-  ActivityUsers: ['username','password','name','phone','activityId'],   // activityId: A1 = Weight, A2 = Clues
-  ActivityLogs:  ['participantId','activityId','start','end','result','notes','by']
+  ActivityUsers: ['username','password','name','phone','activityId','mode'],   // activityId: A1 = Weight, A2 = Clues; mode: Start or End
+  ActivityLogs:  ['participantId','activityId','start','end','result','notes','by','endBy']
 };
 const val_ = v => v instanceof Date ? v.toISOString() : String(v);
 const TEXT_COLS = ['id','its','phone','username'];           // stored as text so leading zeros are kept
@@ -40,7 +40,7 @@ function handle_(p) {
       const v = rows_('Volunteers').find(x => x.username === p.user && x.password === p.pass);
       if (v) sess = {role:'volunteer',user:v.username,name:v.name,checkpointId:v.checkpointId};
       else { const a = rows_('ActivityUsers').find(x => x.username === p.user && x.password === p.pass);
-        if (a) sess = {role:'activity',user:a.username,name:a.name,activityId:a.activityId}; }
+        if (a) sess = {role:'activity',user:a.username,name:a.name,activityId:a.activityId,mode:a.mode}; }
     }
     if (!sess) return {ok:false,error:'Wrong username or password'};
     const token = Utilities.getUuid(); cache_().put(token, JSON.stringify(sess), 21600);
@@ -88,9 +88,9 @@ function handle_(p) {
   }
   if (p.action === 'actSave') {
     const r = p.row, sheet = sh_('ActivityLogs'), v = sheet.getDataRange().getValues();
-    const line = [r.participantId, r.activityId, r.start || '', r.end || '', r.result === undefined ? '' : r.result, r.notes || '', s.user];
+    const line = [r.participantId, r.activityId, r.start || '', r.end || '', r.result === undefined ? '' : r.result, r.notes || '', s.user, ''];
     const i = v.findIndex((x,k) => k > 0 && String(x[0]) === r.participantId && String(x[1]) === r.activityId);
-    if (i > 0) sheet.getRange(i + 1, 1, 1, 7).setValues([line]); else sheet.appendRow(line);
+    if (i > 0) { line[6] = v[i][6] || s.user; line[7] = v[i][7] || ''; sheet.getRange(i + 1, 1, 1, 8).setValues([line]); } else sheet.appendRow(line);
     return {ok:true};
   }
   if (p.action === 'actRemove') {
@@ -119,10 +119,11 @@ function handle_(p) {
 /** Activity staff: scan start, then scan again to finish with result (weight / clues completed). */
 function act_(p, s) {
   const aid = s.activityId, parts = rows_('Participants');
+  const mode = String(s.mode || '').toLowerCase();      // 'start' = start scanner only, 'end' = end scanner only, '' = legacy (both)
   if (p.action === 'state') {
     const logs = rows_('ActivityLogs').filter(x => x.activityId === aid);
     const recent = logs.slice(-15).reverse().map(x => ({id:x.participantId,name:(parts.find(q => q.id === x.participantId)||{}).name||'',start:x.start,end:x.end,result:x.result}));
-    return {ok:true,activityId:aid,started:logs.length,completed:logs.filter(x => x.end).length,recent};
+    return {ok:true,activityId:aid,mode,started:logs.length,completed:logs.filter(x => x.end).length,recent};
   }
   if (p.action !== 'actScan' && p.action !== 'actEnd') return {ok:false,error:'Not allowed'};
   const id = String(p.code || '').trim().toUpperCase();
@@ -132,13 +133,17 @@ function act_(p, s) {
   const i = v.findIndex((r,k) => k > 0 && String(r[0]) === part.id && String(r[1]) === aid);
   const now = new Date().toISOString();
   if (p.action === 'actScan') {
-    if (i < 0) { sheet.appendRow([part.id, aid, now, '', '', '', s.user]); return {ok:true,status:'started',name:part.name,id:part.id,time:now}; }
+    if (i < 0) { if (mode === 'end') return {ok:true,status:'nostart',msg:'Start not recorded yet – scan at the START point first',name:part.name,id:part.id};
+      sheet.appendRow([part.id, aid, now, '', '', '', s.user]); return {ok:true,status:'started',name:part.name,id:part.id,time:now}; }
+    if (mode === 'start') return {ok:true,status:'dup',msg:'Already started',name:part.name,id:part.id};
     if (!v[i][3]) return {ok:true,status:'open',name:part.name,id:part.id,start:val_(v[i][2])};
     return {ok:true,status:'done',msg:'Already completed',name:part.name,id:part.id,result:String(v[i][4])};
   }
+  if (mode === 'start') return {ok:false,error:'Start scanners cannot record an end'};
   if (i < 0) return {ok:false,error:'Start not recorded for this participant'};
   if (v[i][3]) return {ok:false,error:'Already completed'};
   if (p.result === '' || isNaN(p.result)) return {ok:false,error:'Result must be a number'};
   sheet.getRange(i + 1, 4, 1, 3).setValues([[now, Number(p.result), p.notes || '']]);
+  sheet.getRange(i + 1, 8).setValue(s.user);
   return {ok:true};
 }

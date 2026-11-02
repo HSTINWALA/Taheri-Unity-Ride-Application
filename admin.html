@@ -61,7 +61,7 @@ window.TOK='atok';
 const ENT={
  Participants:{key:'id',f:[['id','ID'],['name','Name'],['its','ITS'],['age','Age','number'],['phone','Mobile'],['gender','Gender','sel',['Male','Female']]]},
  Volunteers:{key:'username',f:[['username','Username'],['password','Password','password'],['name','Name'],['phone','Phone'],['checkpointId','Assigned checkpoint','cp']]},
- ActivityUsers:{key:'username',f:[['username','Username'],['password','Password','password'],['name','Name'],['phone','Phone'],['activityId','Activity','act']]},
+ ActivityUsers:{key:'username',f:[['username','Username'],['password','Password','password'],['name','Name'],['phone','Phone'],['activityId','Activity','act'],['mode','Scan role','sel',['Start','End']]]},
  Checkpoints:{key:'id',f:[['id','ID (e.g. CP1)'],['name','Name'],['order','Order (1 = start, highest = finish)','number']]}};
 const TABS=[['dash','Dashboard'],['Participants','Participants'],['Volunteers','Volunteers'],['Checkpoints','Checkpoints'],['act','Activities'],['ActivityUsers','Activity Users'],['scan','Scan'],['cards','Cards']];
 let S={Participants:[],Volunteers:[],Checkpoints:[],Scans:[],ActivityLogs:[],ActivityUsers:[]},cur='dash',Q={};
@@ -69,9 +69,9 @@ $('#nav').innerHTML=TABS.map(t=>`<button data-t="${t[0]}" onclick="show('${t[0]}
 async function login(){const r=await api('login',{role:'admin',user:$('#u').value.trim(),pass:$('#p').value});
  if(!r.ok)return toast(r.error,'err',4000);localStorage.setItem('atok',r.token);boot()}
 function logout(){localStorage.removeItem('atok');stopScan();location.reload()}
-async function load(){const r=await api('state');if(r.error==='auth')return logout();if(!r.ok)return toast(r.error,'err');S=r.data;render()}
+async function load(){const r=await api('state');if(r.error==='auth')return logout();if(!r.ok)return toast(r.error,'err');const j=JSON.stringify(r.data);if(j===window._last)return;window._last=j;S=r.data;render()}
 async function boot(){if(!localStorage.getItem('atok'))return;$('#lg').style.display='none';$('#shell').style.display='block';$('#out').style.display='';
- await load();show('dash');setInterval(()=>{if(!$('#dlg').open&&cur=='dash')load()},15000)}
+ await load();show('dash');setInterval(()=>{if(!$('#dlg').open&&(cur=='dash'||cur=='act')&&!document.hidden)load()},8000)}
 function show(t){cur=t;document.querySelectorAll('.tab').forEach(e=>e.classList.toggle('on',e.id==t));
  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t==t));
  t=='scan'?startScan(doScan):stopScan();render()}
@@ -109,6 +109,7 @@ function edit(n,i){const E=ENT[n],r=i==null?{}:S[n][i];
  $('#sv').onclick=async()=>{const row={...r};E.f.forEach(f=>row[f[0]]=$(`[name=${f[0]}]`,$('#frm')).value.trim());
   if(!row[E.key])return toast(E.key+' is required','err');
   if(n=='Participants'&&!row.name)return toast('Name is required','err');
+  if(n=='ActivityUsers'&&!row.mode)return toast('Choose Start or End scan role','err');
   if(E.f.some(f=>f[2]=='password')){const pw=row.password;row.password=pw?await hashPw(row.username,pw):(r.password||'');if(!row.password)return toast('Password is required','err')}
   if(i==null&&S[n].some(x=>x[E.key]==row[E.key]))return toast('That '+E.key+' already exists','err');
   const res=await api('save',{sheet:n,row});if(res.ok){$('#dlg').close();toast('Saved');load()}else toast(res.error,'err')};
@@ -121,7 +122,7 @@ async function doScan(code){code=(code||'').trim();if(!code)return;const r=await
  toast(r.status=='ok'?'Recorded':r.msg,r.status=='ok'?'ok':'warn');beep(r.status=='ok');$('#sman').value='';load()}
 
 function cardEl(p){const d=document.createElement('div');d.className='pcard';
- d.innerHTML=`</br></br><div class="hd"><img src="logo.jpg" alt=""><div class="ev">TAHERI UNITY RIDE 2026<small>Burhani Guards Division-II</small></div></div>
+ d.innerHTML=`<div class="hd"><img src="logo.jpg" alt=""><div class="ev">TAHERI UNITY RIDE 2026<small>Burhani Guards Division-II</small></div></div>
  <div class="nm">${esc(p.name)}</div><div class="its">${esc(p.its||'')}</div><div class="ag">${[p.age?'Age '+esc(p.age):'',esc(p.gender||'')].filter(Boolean).join(' · ')}</div><div class="qr"></div><div class="pid">${esc(p.id)}</div><div class="ft">Show this QR at every checkpoint</div>`;
  const t=document.createElement('div');new QRCode(t,{text:p.id,width:400,height:400,correctLevel:QRCode.CorrectLevel.M});
  const im=new Image();im.src=t.querySelector('canvas').toDataURL('image/png');d.querySelector('.qr').appendChild(im);return d}
@@ -146,8 +147,8 @@ function renderAct(){const a=ACTS.find(x=>x.id==curAct),logs=S.ActivityLogs.filt
  const dur=(s,e)=>{if(!s||!e)return '–';const d=Math.round((new Date(e)-new Date(s))/1000);return Math.floor(d/60)+'m '+d%60+'s'};
  $('#act').innerHTML=`<div class="panel"><div class="bar"><h2>Activities</h2>${ACTS.map(x=>`<button class="btn ${x.id==curAct?'':'ghost'} sm" onclick="curAct='${x.id}';renderAct()">${x.name}</button>`).join('')}<button class="btn" onclick="editAct()">+ Add entry</button></div>
  <p style="color:var(--mu)">${esc(a.name)} – ranked by ${curAct=='A1'?'highest weight':'least duration'} – started ${logs.length} · completed ${logs.filter(x=>x.end).length}</p>
- <div class="tw"><table><tr><th>Rank</th><th>ID</th><th>Name</th><th>Start</th><th>End</th><th>Duration</th><th>${esc(a.label)}</th><th>Notes</th><th>By</th><th></th></tr>
- ${logs.map(x=>`<tr><td>${x.rank?(['🥇','🥈','🥉'][x.rank-1]||'')+' '+x.rank:''}</td><td>${esc(x.participantId)}</td><td>${esc(nm(x.participantId))}</td><td>${fmt(x.start)}</td><td>${fmt(x.end)}</td><td>${dur(x.start,x.end)}</td><td>${esc(x.result)}</td><td>${esc(x.notes)}</td><td>${esc(x.by)}</td>
+ <div class="tw"><table><tr><th>Rank</th><th>ID</th><th>Name</th><th>Start</th><th>End</th><th>Duration</th><th>${esc(a.label)}</th><th>Notes</th><th>Start by</th><th>End by</th><th></th></tr>
+ ${logs.map(x=>`<tr><td>${x.rank?(['🥇','🥈','🥉'][x.rank-1]||'')+' '+x.rank:''}</td><td>${esc(x.participantId)}</td><td>${esc(nm(x.participantId))}</td><td>${fmt(x.start)}</td><td>${fmt(x.end)}</td><td>${dur(x.start,x.end)}</td><td>${esc(x.result)}</td><td>${esc(x.notes)}</td><td>${esc(x.by)}</td><td>${esc(x.endBy)}</td>
  <td><button class="btn ghost sm" onclick="editAct('${esc(x.participantId)}')">Edit</button> <button class="btn red sm" onclick="delAct('${esc(x.participantId)}')">Delete</button></td></tr>`).join('')}</table></div></div>`}
 function editAct(pid){const a=ACTS.find(x=>x.id==curAct),x=S.ActivityLogs.find(l=>l.activityId==curAct&&l.participantId==pid)||{};
  $('#frm').innerHTML=`<h2>${pid?'Edit':'Add'} – ${esc(a.name)}</h2><label>Participant ID</label><input name="pid" list="pl" value="${esc(x.participantId||'')}" ${pid?'readonly':''}><datalist id="pl">${S.Participants.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}`).join('')}</datalist>
