@@ -18,13 +18,14 @@ dialog{background:var(--card);color:var(--tx);border:1px solid var(--line);borde
 #cardgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(85mm,max-content));gap:16px;justify-content:center}
 .cwrap{display:flex;flex-direction:column;gap:8px;align-items:center;break-inside:avoid}
 .pcard{width:85mm;height:130mm;background:#fff;color:#111;border:.4mm solid #14213d;border-radius:4mm;overflow:hidden;display:flex;flex-direction:column;text-align:center;font-family:"Trebuchet MS","Segoe UI",Arial,sans-serif}
-.pcard .hd{background:#14213d;color:#fff;display:flex;align-items:center;gap:3mm;padding:3mm 4mm;height:25mm;border-bottom:1.2mm solid #f08a24;flex:none}
-.pcard .hd img{width:17mm;height:17mm;border-radius:50%;object-fit:cover;flex:none;background:#fff}
-.pcard .ev{flex:1;min-width:0;font-size:10.5pt;font-weight:800;line-height:1.2;white-space:nowrap}.pcard .ev small{display:block;color:#f08a24;font-size:7.5pt;font-weight:600;margin-top:1mm}
+.pcard .hd{background:#14213d;color:#fff;display:flex;align-items:center;gap:3mm;padding:9mm 4mm 3mm;height:40mm;position:relative;border-bottom:1.2mm solid #f08a24;flex:none}
+.pcard .hd img{width:22mm;height:22mm;border-radius:50%;object-fit:cover;flex:none;background:#fff}
+.pcard .slot{position:absolute;top:3mm;left:50%;transform:translateX(-50%);width:18mm;height:4mm;border-radius:2mm;background:#fff}
+.pcard .ev{flex:1;min-width:0;font-size:13pt;font-weight:800;line-height:1.15}.pcard .ev small{display:block;color:#f08a24;font-size:8pt;font-weight:600;margin-top:1.5mm}
 .pcard .nm{font-size:20pt;font-weight:800;margin:3mm 3mm 0;line-height:1.1;min-height:11mm;display:flex;align-items:center;justify-content:center}
 .pcard .its{font-size:15pt;font-weight:700;margin-top:1mm;min-height:6mm}
 .pcard .ag{font-size:10pt;color:#444;margin-top:.5mm;min-height:4.5mm}
-.pcard .qr{margin:2mm auto 0;width:46mm;height:46mm}.pcard .qr img{width:100%;height:100%}
+.pcard .qr{margin:2mm auto 0;width:40mm;height:40mm}.pcard .qr img{width:100%;height:100%}
 .pcard .pid{font:700 13pt monospace;color:#c96a0a;margin-top:2mm}
 .pcard .ft{margin-top:auto;background:#f08a24;font-size:7.5pt;padding:2mm;font-weight:700;color:#1b1205}
 @media print{@page{size:A4;margin:8mm}header,nav,.noprint,#toast{display:none!important}body{background:#fff}main{padding:0}.panel{border:0;background:none;padding:0}#cardgrid{grid-template-columns:repeat(2,85mm);gap:6mm}}
@@ -81,18 +82,20 @@ function render(){if(cur=='dash')renderDash();else if(ENT[cur])renderEnt(cur);el
 
 function board(){const c=cps(),end=c[c.length-1],by={};
  S.Scans.forEach(s=>{(by[s.participantId]=by[s.participantId]||{})[s.checkpointId]=s.time});
- const rows=S.Participants.map(p=>{const m=by[p.id]||{},t=Object.values(m).sort();return{p,m,n:t.length,last:t[t.length-1]||'',fin:end?m[end.id]||'':''}});
+ const ac={};S.ActivityLogs.forEach(l=>{if(l.end)(ac[l.participantId]=ac[l.participantId]||new Set()).add(l.activityId)});
+ const rows=S.Participants.map(p=>{const m=by[p.id]||{},t=Object.values(m).sort();return{p,m,n:t.length,last:t[t.length-1]||'',fin:end?m[end.id]||'':'',acts:(ac[p.id]||new Set()).size}});
  rows.sort((a,b)=>(!!b.fin-!!a.fin)||(a.fin&&b.fin?a.fin.localeCompare(b.fin):0)||(b.n-a.n)||((a.last||'z').localeCompare(b.last||'z')));
- let rk=0;rows.forEach(r=>r.rank=r.fin?++rk:0);return{rows,c,end}}
+ let rk=0;rows.forEach(r=>r.rank=(r.fin&&r.n>=c.length&&r.acts>=2)?++rk:0);   // ranked only if all checkpoints + both activities completed
+ return{rows,c,end}}
 function renderDash(){const{rows,c,end}=board(),fin=rows.filter(r=>r.fin),started=rows.filter(r=>r.n);
- const pod=fin.slice(0,3).map(r=>`<div class="pod p${r.rank}"><div>Position ${r.rank}</div><div class="nm">${esc(r.p.name)}</div><div>${esc(r.p.id)} · finished ${fmt(r.fin)}</div>
-  ${r.p.verifiedPos==r.rank?'<span class="tag ok">✔ Verified</span>':`<button class="btn sm" style="margin-top:8px" onclick="verify('${esc(r.p.id)}',${r.rank})">Verify position ${r.rank}</button>`}</div>`).join('')||'<p style="color:var(--mu)">No finisher yet. The first scan at the finish checkpoint will appear here.</p>';
+ const pod=rows.filter(r=>r.rank).slice(0,3).map(r=>`<div class="pod p${r.rank}"><div>Position ${r.rank}</div><div class="nm">${esc(r.p.name)}</div><div>${esc(r.p.id)} · finished ${fmt(r.fin)}</div>
+  ${r.p.verifiedPos==r.rank?'<span class="tag ok">✔ Verified</span>':`<button class="btn sm" style="margin-top:8px" onclick="verify('${esc(r.p.id)}',${r.rank})">Verify position ${r.rank}</button>`}</div>`).join('')||'<p style="color:var(--mu)">No qualified participant yet. The podium lists those who completed all checkpoints and both activities, in order of finish time.</p>';
  const mx=Math.max(1,S.Participants.length);
  $('#dash').innerHTML=`<div class="kpis"><div><b>${S.Participants.length}</b>Participants</div><div><b>${started.length}</b>Started</div><div><b>${fin.length}</b>Finished</div><div><b>${S.Volunteers.length}</b>Volunteers</div></div>
  <div class="panel"><h2>Podium</h2><div class="podium">${pod}</div></div>
  <div class="panel"><h2>Checkpoint progress</h2>${c.map(k=>{const n=S.Scans.filter(s=>s.checkpointId==k.id).length;return`<div class="cpbar"><span>${esc(k.name)}</span><i style="width:${n/mx*60}%"></i> ${n}</div>`}).join('')||'<p>Add checkpoints first.</p>'}</div>
  <div class="panel"><div class="bar"><h2>Live leaderboard</h2><button class="btn ghost sm" onclick="load()">Refresh</button></div><div class="tw"><table><tr><th>#</th><th>ID</th><th>Name</th>${c.map(k=>`<th>${esc(k.name)}</th>`).join('')}<th>Status</th></tr>
- ${rows.map(r=>`<tr><td>${r.rank||''}</td><td>${esc(r.p.id)}</td><td>${esc(r.p.name)}</td>${c.map(k=>`<td>${fmt(r.m[k.id])}</td>`).join('')}<td>${r.fin?'<span class="tag ok">Finished</span>':r.n?`<span class="tag">${r.n}/${c.length}</span>`:'Not started'}${r.p.verifiedPos?` <span class="tag ok">Verified #${esc(r.p.verifiedPos)}</span>`:''}</td></tr>`).join('')}</table></div></div>`}
+ ${rows.map(r=>`<tr><td>${r.rank||''}</td><td>${esc(r.p.id)}</td><td>${esc(r.p.name)}</td>${c.map(k=>`<td>${fmt(r.m[k.id])}</td>`).join('')}<td>${r.rank?'<span class="tag ok">Finished</span>':r.fin?`<span class="tag">Finished · activities ${r.acts}/2</span>`:r.n?`<span class="tag">${r.n}/${c.length}</span>`:'Not started'}${r.p.verifiedPos?` <span class="tag ok">Verified #${esc(r.p.verifiedPos)}</span>`:''}</td></tr>`).join('')}</table></div></div>`}
 async function verify(id,pos){const p=S.Participants.find(x=>x.id==id);const r=await api('save',{sheet:'Participants',row:{...p,verifiedPos:pos}});r.ok?(toast('Position '+pos+' verified'),load()):toast(r.error,'err')}
 
 function renderEnt(n){const E=ENT[n],q=(Q[n]||'').toLowerCase();
@@ -122,7 +125,7 @@ async function doScan(code){code=(code||'').trim();if(!code)return;const r=await
  toast(r.status=='ok'?'Recorded':r.msg,r.status=='ok'?'ok':'warn');beep(r.status=='ok');$('#sman').value='';load()}
 
 function cardEl(p){const d=document.createElement('div');d.className='pcard';
- d.innerHTML=`<div class="hd"><img src="logo.jpg" alt=""><div class="ev">TAHERI UNITY RIDE 2026<small>Burhani Guards Pakistan <br>Division-II</small></div></div>
+ d.innerHTML=`<div class="hd"><div class="slot"></div><img src="logo.jpg" alt=""><div class="ev">TAHERI UNITY<br>RIDE 2026<small>Burhani Guards Division-II</small></div></div>
  <div class="nm">${esc(p.name)}</div><div class="its">${esc(p.its||'')}</div><div class="ag">${[p.age?'Age '+esc(p.age):'',esc(p.gender||'')].filter(Boolean).join(' · ')}</div><div class="qr"></div><div class="pid">${esc(p.id)}</div><div class="ft">Show this QR at every checkpoint</div>`;
  const t=document.createElement('div');new QRCode(t,{text:p.id,width:400,height:400,correctLevel:QRCode.CorrectLevel.M});
  const im=new Image();im.src=t.querySelector('canvas').toDataURL('image/png');d.querySelector('.qr').appendChild(im);return d}
