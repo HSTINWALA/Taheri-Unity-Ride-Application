@@ -70,7 +70,7 @@ const ENT={
  Participants:{key:'id',f:[['id','ID'],['name','Name'],['its','ITS'],['age','Age','number'],['phone','Mobile'],['gender','Gender','sel',['Male','Female']]]},
  Volunteers:{key:'username',f:[['username','Username'],['password','Password','password'],['name','Name'],['phone','Phone'],['checkpointId','Assigned checkpoint','cp']]},
  ActivityUsers:{key:'username',f:[['username','Username'],['password','Password','password'],['name','Name'],['phone','Phone'],['activityId','Activity','act'],['mode','Scan role','sel',['Start','End']]]},
- Checkpoints:{key:'id',f:[['id','ID (e.g. CP1)'],['name','Name'],['order','Order (1 = start, highest = finish)','number'],['lat','Latitude (or paste "lat, lng" from Google Maps)'],['lng','Longitude']]}};
+ Checkpoints:{key:'id',f:[['id','ID (e.g. CP1)'],['name','Name'],['order','Order','number'],['lat','Latitude'],['lng','Longitude']]}};
 const TABS=[['dash','Dashboard'],['track','Live Tracking'],['Participants','Participants'],['Volunteers','Volunteers'],['Checkpoints','Checkpoints'],['act','Activities'],['ActivityUsers','Activity Users'],['scan','Scan'],['cards','Cards']];
 let S={Participants:[],Volunteers:[],Checkpoints:[],Scans:[],ActivityLogs:[],ActivityUsers:[]},cur='dash',Q={};
 $('#nav').innerHTML=TABS.map(t=>`<button data-t="${t[0]}" onclick="show('${t[0]}')">${t[1]}</button>`).join('');
