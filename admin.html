@@ -53,7 +53,7 @@ dialog{background:var(--card);color:var(--tx);border:1px solid var(--line);borde
 <section class="tab" id="ActivityUsers"></section>
 <section class="tab" id="scan"><div class="panel"><h2>Scan as admin (any checkpoint)</h2>
 <label>Checkpoint</label><select id="scp"></select><label style="display:block;margin-bottom:10px"><input type="checkbox" id="force" style="width:auto;margin:0 6px 0 0">Override checkpoint sequence (allow skipping previous checkpoint)</label><div id="reader"></div><div id="sres" style="text-align:center;margin:12px 0;font-size:1.1rem"></div>
-<div class="bar"><input id="sman" placeholder="Or type participant ID" style="flex:1"><button class="btn" onclick="doScan($('#sman').value)">Record</button></div></div></section>
+<div class="bar"><input id="sman" placeholder="Participant number (e.g. 12) or full ID" inputmode="numeric" autocomplete="off" oninput="cleanTyping(this)" onkeydown="event.key=='Enter'&&manualScan()" style="flex:1"><button class="btn" onclick="manualScan()">Record</button></div></div></section>
 <section class="tab" id="cards"><div class="panel"><div class="bar noprint"><h2>Participant cards</h2><input id="cq" placeholder="Filter name or ID" oninput="renderCards()"><button class="btn ghost" onclick="allPNG()">Download all PNG</button><button class="btn" onclick="print()">Print cards</button></div><div id="cardgrid"></div></div></section>
 </main></div>
 <dialog id="dlg"><form method="dialog" id="frm" onsubmit="return false"></form></dialog>
@@ -70,7 +70,7 @@ const ENT={
  Participants:{key:'id',f:[['id','ID'],['name','Name'],['its','ITS'],['age','Age','number'],['phone','Mobile'],['gender','Gender','sel',['Male','Female']]]},
  Volunteers:{key:'username',f:[['username','Username'],['password','Password','password'],['name','Name'],['phone','Phone'],['checkpointId','Assigned checkpoint','cp']]},
  ActivityUsers:{key:'username',f:[['username','Username'],['password','Password','password'],['name','Name'],['phone','Phone'],['activityId','Activity','act'],['mode','Scan role','sel',['Start','End']]]},
- Checkpoints:{key:'id',f:[['id','ID (e.g. CP1)'],['name','Name'],['order','Order','number'],['lat','Latitude'],['lng','Longitude']]}};
+ Checkpoints:{key:'id',f:[['id','ID (e.g. CP1)'],['name','Name'],['order','Order (1 = start, highest = finish)','number'],['lat','Latitude (or paste "lat, lng" from Google Maps)'],['lng','Longitude']]}};
 const TABS=[['dash','Dashboard'],['track','Live Tracking'],['Participants','Participants'],['Volunteers','Volunteers'],['Checkpoints','Checkpoints'],['act','Activities'],['ActivityUsers','Activity Users'],['scan','Scan'],['cards','Cards']];
 let S={Participants:[],Volunteers:[],Checkpoints:[],Scans:[],ActivityLogs:[],ActivityUsers:[]},cur='dash',Q={};
 $('#nav').innerHTML=TABS.map(t=>`<button data-t="${t[0]}" onclick="show('${t[0]}')">${t[1]}</button>`).join('');
@@ -148,6 +148,7 @@ async function allPNG(){for(const p of cardList()){await cardPNG(p);await new Pr
 function renderCards(){const g=$('#cardgrid'),l=cardList();g.innerHTML='';if(!l.length){g.innerHTML='<p>No participants yet.</p>';return}
  l.forEach(p=>{const w=document.createElement('div');w.className='cwrap';w.appendChild(cardEl(p));
   const b=document.createElement('button');b.className='btn sm noprint';b.textContent='⬇ Download PNG';b.onclick=()=>cardPNG(p);w.appendChild(b);g.appendChild(w)})}
+function manualScan(){const raw=$('#sman').value.trim();if(!raw)return;const v=cleanManual(raw);if(!v)return toast(MANUAL_MSG,'err',4000);doScan(v)}
 let curAct='A1';
 const toL=t=>t?new Date(new Date(t)-new Date(t).getTimezoneOffset()*6e4).toISOString().slice(0,16):'';
 const fromL=v=>v?new Date(v).toISOString():'';
