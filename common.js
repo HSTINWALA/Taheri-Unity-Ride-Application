@@ -18,3 +18,8 @@ async function stopScan(){if(_qr&&_qr.isScanning)await _qr.stop()}
 // SHA-256 hash (salted with username) so the plain password is never sent or stored
 async function hashPw(user,pw){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('TUR26|'+String(user).toLowerCase()+'|'+pw));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
 const ACTS=[{id:'A1',name:'Weight Activity',label:'Weight (kg)'},{id:'A2',name:'Clues Activity',label:'Clues completed'}];
+
+// Manual entry: digits only (e.g. 12) or a full ID such as TUR26-012; anything else is rejected
+const MANUAL_MSG='Enter digits only (e.g. 12) or the full ID (e.g. TUR26-012)';
+function cleanManual(v){v=String(v||'').trim().toUpperCase();return(/^\d+$/.test(v)||/^[A-Z0-9]+-\d+$/.test(v))?v:null}
+function cleanTyping(el){el.value=el.value.replace(/[^0-9A-Za-z-]/g,'')}
