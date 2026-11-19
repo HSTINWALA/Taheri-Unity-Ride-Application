@@ -5,7 +5,7 @@ const ADMIN = {user: 'admin', pass: 'ChangeMe123'};   // <-- change this
 const COLS = {
   Participants:  ['id','name','category','phone','verifiedPos','its','age','gender'],   // phone = Mobile
   Volunteers:    ['username','password','name','phone','checkpointId'],
-  Checkpoints:   ['id','name','order'],
+  Checkpoints:   ['id','name','order','lat','lng'],   // lat/lng used by the admin live-tracking map
   Scans:         ['time','participantId','checkpointId','by'],
   ActivityUsers: ['username','password','name','phone','activityId','mode'],   // activityId: A1 = Weight, A2 = Clues; mode: Start or End
   ActivityLogs:  ['participantId','activityId','start','end','result','notes','by','endBy']
@@ -21,6 +21,11 @@ const rows_ = n => { const v = sh_(n).getDataRange().getValues(); const h = v.sh
   return v.filter(r => r[0] !== '').map(r => Object.fromEntries(h.map((k,i) => [k, val_(r[i])]))); };
 const out_ = o => ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
 const cache_ = () => CacheService.getScriptCache();
+// Finds a participant by full ID, or by number only (e.g. "12" matches TUR26-012 when exactly one ID ends in that number)
+const findPart_ = (parts, code) => { const c = String(code || '').trim().toUpperCase();
+  const x = parts.find(q => q.id.toUpperCase() === c); if (x || !/^\d+$/.test(c)) return x;
+  const m = parts.filter(q => { const t = q.id.match(/(\d+)$/); return t && Number(t[1]) === Number(c); });
+  return m.length === 1 ? m[0] : undefined; };
 const cpsSorted_ = () => rows_('Checkpoints').sort((a,b) => a.order - b.order);   // ascending order
 
 function doGet() { return out_({ok:true,msg:'Unity Ride API running'}); }
@@ -64,7 +69,7 @@ function handle_(p) {
     const cpId = admin ? p.checkpointId : s.checkpointId;           // volunteers are locked to their checkpoint
     if (!cpId) return {ok:false,error:'No checkpoint assigned. Ask admin.'};
     const id = String(p.code || '').trim().toUpperCase();
-    const part = rows_('Participants').find(x => x.id.toUpperCase() === id);
+    const part = findPart_(rows_('Participants'), id);
     if (!part) return {ok:true,status:'unknown',msg:'Participant not found: ' + id};
     const scans = rows_('Scans').filter(x => x.participantId === part.id);
     if (scans.some(x => x.checkpointId === cpId)) return {ok:true,status:'dup',msg:'Already scanned here',name:part.name,id:part.id};
@@ -127,7 +132,7 @@ function act_(p, s) {
   }
   if (p.action !== 'actScan' && p.action !== 'actEnd') return {ok:false,error:'Not allowed'};
   const id = String(p.code || '').trim().toUpperCase();
-  const part = parts.find(x => x.id.toUpperCase() === id);
+  const part = findPart_(parts, id);
   if (!part) return {ok:true,status:'unknown',msg:'Participant not found: ' + id};
   const sheet = sh_('ActivityLogs'), v = sheet.getDataRange().getValues();
   const i = v.findIndex((r,k) => k > 0 && String(r[0]) === part.id && String(r[1]) === aid);
@@ -136,14 +141,18 @@ function act_(p, s) {
     if (i < 0) { if (mode === 'end') return {ok:true,status:'nostart',msg:'Start not recorded yet – scan at the START point first',name:part.name,id:part.id};
       sheet.appendRow([part.id, aid, now, '', '', '', s.user]); return {ok:true,status:'started',name:part.name,id:part.id,time:now}; }
     if (mode === 'start') return {ok:true,status:'dup',msg:'Already started',name:part.name,id:part.id};
+    if (!v[i][3] && aid === 'A2') {                       // Clues activity: scan at the end point simply records the end time
+      sheet.getRange(i + 1, 4, 1, 3).setValues([[now, '', '']]); sheet.getRange(i + 1, 8).setValue(s.user);
+      return {ok:true,status:'ended',name:part.name,id:part.id,start:val_(v[i][2]),time:now}; }
     if (!v[i][3]) return {ok:true,status:'open',name:part.name,id:part.id,start:val_(v[i][2])};
     return {ok:true,status:'done',msg:'Already completed',name:part.name,id:part.id,result:String(v[i][4])};
   }
   if (mode === 'start') return {ok:false,error:'Start scanners cannot record an end'};
+  if (aid === 'A2') return {ok:false,error:'Clues activity needs no result – just scan to finish'};
   if (i < 0) return {ok:false,error:'Start not recorded for this participant'};
   if (v[i][3]) return {ok:false,error:'Already completed'};
-  if (p.result === '' || isNaN(p.result)) return {ok:false,error:'Result must be a number'};
-  sheet.getRange(i + 1, 4, 1, 3).setValues([[now, Number(p.result), p.notes || '']]);
+  if (p.result === '' || isNaN(p.result) || Number(p.result) <= 0) return {ok:false,error:'Enter the weight as a number'};
+  sheet.getRange(i + 1, 4, 1, 3).setValues([[now, Number(p.result), '']]);
   sheet.getRange(i + 1, 8).setValue(s.user);
   return {ok:true};
 }

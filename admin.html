@@ -134,7 +134,7 @@ async function doScan(code){code=(code||'').trim();if(!code)return;const r=await
  toast(r.status=='ok'?'Recorded':r.msg,r.status=='ok'?'ok':'warn');beep(r.status=='ok');$('#sman').value='';load()}
 
 function cardEl(p){const d=document.createElement('div');d.className='pcard';
- d.innerHTML=`<div class="hd"><div class="slot"></div><img src="logo.jpg" alt=""><div class="ev">TAHERI UNITY RIDE 2026<small>Burhani Guards Pakistan<br>Division-II</small></div></div>
+ d.innerHTML=`<div class="hd"><div class="slot"></div><img src="logo.jpg" alt=""><div class="ev">TAHERI UNITY RIDE 2026<small>Burhani Guards Division-II</small></div></div>
  <div class="nm">${esc(p.name)}</div><div class="its">${esc(p.its||'')}</div><div class="ag">${[p.age?'Age '+esc(p.age):'',esc(p.gender||'')].filter(Boolean).join(' · ')}</div><div class="qr"></div><div class="pid">${esc(p.id)}</div><div class="ft">Show this QR at every checkpoint</div>`;
  const t=document.createElement('div');new QRCode(t,{text:p.id,width:400,height:400,correctLevel:QRCode.CorrectLevel.M});
  const im=new Image();im.src=t.querySelector('canvas').toDataURL('image/png');d.querySelector('.qr').appendChild(im);return d}
@@ -153,22 +153,23 @@ let curAct='A1';
 const toL=t=>t?new Date(new Date(t)-new Date(t).getTimezoneOffset()*6e4).toISOString().slice(0,16):'';
 const fromL=v=>v?new Date(v).toISOString():'';
 function renderAct(){const a=ACTS.find(x=>x.id==curAct),logs=S.ActivityLogs.filter(x=>x.activityId==curAct);
- const key=x=>{if(!x.end)return null;const k=curAct=='A1'?-parseFloat(x.result):(new Date(x.end)-new Date(x.start))/1000;return isNaN(k)?null:k};
- logs.sort((p,q)=>{const m=key(p),n=key(q);return m===null?(n===null?0:1):n===null?-1:m-n});
- let rk=0,cnt=0,prev;logs.forEach(x=>{const k=key(x);if(k===null){x.rank='';return}cnt++;if(k!==prev){rk=cnt;prev=k}x.rank=rk});
+ const dsec=x=>(x.start&&x.end)?(new Date(x.end)-new Date(x.start))/1000:null,w=x=>parseFloat(x.result);
+ const ok=x=>x.end&&(curAct=='A1'?isFinite(w(x)):dsec(x)!==null);
+ logs.sort((p,q)=>{const m=ok(p),n=ok(q);if(!m||!n)return m?-1:n?1:0;if(curAct=='A1'){const d=w(q)-w(p);if(d)return d}return dsec(p)-dsec(q)});   // weight: highest first, then least time; clues: least time
+ let rk=0,cnt=0,prev;logs.forEach(x=>{if(!ok(x)){x.rank='';return}const k=(curAct=='A1'?w(x):'')+'|'+dsec(x);cnt++;if(k!==prev){rk=cnt;prev=k}x.rank=rk});
  const nm=id=>(S.Participants.find(p=>p.id==id)||{}).name||'';
  const dur=(s,e)=>{if(!s||!e)return '–';const d=Math.round((new Date(e)-new Date(s))/1000);return Math.floor(d/60)+'m '+d%60+'s'};
  $('#act').innerHTML=`<div class="panel"><div class="bar"><h2>Activities</h2>${ACTS.map(x=>`<button class="btn ${x.id==curAct?'':'ghost'} sm" onclick="curAct='${x.id}';renderAct()">${x.name}</button>`).join('')}<button class="btn" onclick="editAct()">+ Add entry</button></div>
- <p style="color:var(--mu)">${esc(a.name)} – ranked by ${curAct=='A1'?'highest weight':'least duration'} – started ${logs.length} · completed ${logs.filter(x=>x.end).length}</p>
- <div class="tw"><table><tr><th>Rank</th><th>ID</th><th>Name</th><th>Start</th><th>End</th><th>Duration</th><th>${esc(a.label)}</th><th>Notes</th><th>Start by</th><th>End by</th><th></th></tr>
- ${logs.map(x=>`<tr><td>${x.rank?(['🥇','🥈','🥉'][x.rank-1]||'')+' '+x.rank:''}</td><td>${esc(x.participantId)}</td><td>${esc(nm(x.participantId))}</td><td>${fmt(x.start)}</td><td>${fmt(x.end)}</td><td>${dur(x.start,x.end)}</td><td>${esc(x.result)}</td><td>${esc(x.notes)}</td><td>${esc(x.by)}</td><td>${esc(x.endBy)}</td>
+ <p style="color:var(--mu)">${esc(a.name)} – ranked by ${curAct=='A1'?'highest weight, then least time':'least duration'} – started ${logs.length} · completed ${logs.filter(x=>x.end).length}</p>
+ <div class="tw"><table><tr><th>Rank</th><th>ID</th><th>Name</th><th>Start</th><th>End</th><th>Duration</th>${curAct=='A1'?'<th>Weight (kg)</th>':''}<th>Start by</th><th>End by</th><th></th></tr>
+ ${logs.map(x=>`<tr><td>${x.rank?(['🥇','🥈','🥉'][x.rank-1]||'')+' '+x.rank:''}</td><td>${esc(x.participantId)}</td><td>${esc(nm(x.participantId))}</td><td>${fmt(x.start)}</td><td>${fmt(x.end)}</td><td>${dur(x.start,x.end)}</td>${curAct=='A1'?`<td>${esc(x.result)}</td>`:''}<td>${esc(x.by)}</td><td>${esc(x.endBy)}</td>
  <td><button class="btn ghost sm" onclick="editAct('${esc(x.participantId)}')">Edit</button> <button class="btn red sm" onclick="delAct('${esc(x.participantId)}')">Delete</button></td></tr>`).join('')}</table></div></div>`}
 function editAct(pid){const a=ACTS.find(x=>x.id==curAct),x=S.ActivityLogs.find(l=>l.activityId==curAct&&l.participantId==pid)||{};
  $('#frm').innerHTML=`<h2>${pid?'Edit':'Add'} – ${esc(a.name)}</h2><label>Participant ID</label><input name="pid" list="pl" value="${esc(x.participantId||'')}" ${pid?'readonly':''}><datalist id="pl">${S.Participants.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}`).join('')}</datalist>
  <label>Start time</label><input name="st" type="datetime-local" value="${toL(x.start)}"><label>End time</label><input name="en" type="datetime-local" value="${toL(x.end)}">
- <label>${esc(a.label)}</label><input name="rs" type="number" step="any" value="${esc(x.result||'')}"><label>Notes</label><input name="nt" value="${esc(x.notes||'')}">
+ ${curAct=='A1'?`<label>Weight (kg)</label><input name="rs" type="number" step="any" value="${esc(x.result||'')}">`:''}
  <div class="bar"><button class="btn" id="sv">Save</button><button class="btn ghost" type="button" onclick="$('#dlg').close()">Cancel</button></div>`;
- $('#sv').onclick=async()=>{const g=n=>$(`[name=${n}]`,$('#frm')).value.trim(),id=g('pid');
+ $('#sv').onclick=async()=>{const g=n=>{const e=$(`[name=${n}]`,$('#frm'));return e?e.value.trim():''},id=g('pid');
   if(!S.Participants.some(p=>p.id==id))return toast('Unknown participant ID','err');
   const res=await api('actSave',{row:{participantId:id,activityId:curAct,start:fromL(g('st')),end:fromL(g('en')),result:g('rs'),notes:g('nt')}});
   if(res.ok){$('#dlg').close();toast('Saved');load()}else toast(res.error,'err')};$('#dlg').showModal()}
