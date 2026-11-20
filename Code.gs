@@ -2,6 +2,7 @@
  *  Bound to a Google Sheet: Extensions > Apps Script > paste > Deploy > Web app (Execute as: Me, Access: Anyone).
  *  After ANY edit: Deploy > Manage deployments > Edit > New version > Deploy. */
 const ADMIN = {user: 'admin', pass: 'ChangeMe123'};   // <-- change this
+const VIEWER = {user: 'viewer', pass: 'ViewOnly123'};   // <-- static dashboard (view-only) user; change this
 const COLS = {
   Participants:  ['id','name','category','phone','verifiedPos','its','age','gender'],   // phone = Mobile
   Volunteers:    ['username','password','name','phone','checkpointId'],
@@ -41,6 +42,7 @@ function handle_(p) {
   if (p.action === 'login') {
     let sess = null;
     if (p.role === 'admin') { if (p.user === ADMIN.user && p.pass === ADMIN.pass) sess = {role:'admin',user:'admin',name:'Admin'}; }
+    else if (p.role === 'viewer') { if (p.user === VIEWER.user && p.pass === VIEWER.pass) sess = {role:'viewer',user:VIEWER.user,name:'Dashboard viewer'}; }
     else {
       const v = rows_('Volunteers').find(x => x.username === p.user && x.password === p.pass);
       if (v) sess = {role:'volunteer',user:v.username,name:v.name,checkpointId:v.checkpointId};
@@ -53,6 +55,7 @@ function handle_(p) {
   }
   const raw = cache_().get(p.token); if (!raw) return {ok:false,error:'auth'};
   const s = JSON.parse(raw), admin = s.role === 'admin';
+  if (s.role === 'viewer') return viewer_(p);
   if (s.role === 'activity') return act_(p, s);
 
   if (p.action === 'state') {
@@ -155,4 +158,15 @@ function act_(p, s) {
   sheet.getRange(i + 1, 4, 1, 3).setValues([[now, Number(p.result), '']]);
   sheet.getRange(i + 1, 8).setValue(s.user);
   return {ok:true};
+}
+
+/** Static dashboard user: read-only; no phone, ITS, passwords or other sensitive columns are sent. */
+function viewer_(p) {
+  if (p.action !== 'state') return {ok:false,error:'Not allowed'};
+  return {ok:true,data:{
+    Participants: rows_('Participants').map(x => ({id:x.id,name:x.name,category:x.category,gender:x.gender,age:x.age,verifiedPos:x.verifiedPos})),
+    Checkpoints: rows_('Checkpoints'),
+    Scans: rows_('Scans').map(x => ({time:x.time,participantId:x.participantId,checkpointId:x.checkpointId})),
+    ActivityLogs: rows_('ActivityLogs').map(x => ({participantId:x.participantId,activityId:x.activityId,start:x.start,end:x.end,result:x.result}))
+  }};
 }
