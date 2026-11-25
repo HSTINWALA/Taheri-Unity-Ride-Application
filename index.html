@@ -3,7 +3,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Volunteer – Taheri Unity Ride 2026</title>
 <link rel="stylesheet" href="common.css">
-<style>.big{font-size:2.4rem;font-weight:800;color:var(--ac)}.stats{display:flex;gap:12px;text-align:center}.stats div{flex:1;background:#0e1932;border-radius:10px;padding:10px}.res{display:none;text-align:center;padding:14px;border-radius:12px;margin:14px 0;font-size:1.1rem}.res b{display:block;font-size:1.5rem}.row{display:flex;gap:8px}.row input{margin:0}tr.me td{color:var(--ac);font-weight:700}#endbox{display:none;margin-top:12px}</style>
+<style>.big{font-size:2.4rem;font-weight:800;color:var(--ac)}.stats{display:flex;gap:12px;text-align:center}.stats div{flex:1;background:#0e1932;border-radius:10px;padding:10px}.res{display:none;text-align:center;padding:14px;border-radius:12px;margin:14px 0;font-size:1.1rem}.res b{display:block;font-size:1.5rem}.row{display:flex;gap:8px}.row input{margin:0}tr.me td{color:var(--ac);font-weight:700}#endbox{display:none;margin-top:12px}.sync{display:flex;align-items:center;justify-content:space-between;gap:10px}.sync small{color:var(--mu);font-size:.8rem}.sync .btn{white-space:nowrap}#syI{display:inline-block}.spin #syI{animation:sp .8s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}</style>
 </head><body>
 <header><img src="logo.jpg" alt=""><h1>Taheri Unity Ride 2026<small>Volunteer entry</small></h1><button class="btn ghost sm" id="out" style="display:none" onclick="logout()">Log out</button></header>
 <main style="max-width:520px">
@@ -12,6 +12,7 @@
 <button class="btn" style="width:100%" onclick="login()">Log in</button></section>
 <section id="app" style="display:none">
 <div class="panel"><div style="color:var(--mu)" id="lbl">Your checkpoint</div><div class="big" id="cpn">–</div><div id="vn" style="color:var(--mu)"></div></div>
+<div class="panel sync"><div><b>Live data</b><br><small id="syT">Not synced yet</small></div><button class="btn" id="syncBtn" onclick="syncNow()"><span id="syI">⟳</span> Sync</button></div>
 <div class="panel"><div id="reader"></div>
 <div class="res" id="res"></div>
 <div id="endbox"><label id="endlbl">Result</label><input id="rv" type="number" step="any" inputmode="decimal"><button class="btn" style="width:100%" onclick="endSave()">Save &amp; finish</button></div>
@@ -28,16 +29,23 @@ window.TOK='vtok';let busy=false,ROLE='volunteer',A=null,curCode='';
 async function login(){const u=$('#u').value.trim();const r=await api('login',{role:'volunteer',user:u,pass:await hashPw(u,$('#p').value)});
   if(!r.ok)return toast(r.error,'err',4000);if(r.session.role!=='volunteer')return toast('Activity staff: please use activity.html','err',5000);localStorage.setItem('vtok',r.token);localStorage.setItem('vrole',r.session.role);boot()}
 function logout(){localStorage.removeItem('vtok');localStorage.removeItem('vrole');stopScan();location.reload()}
-async function refresh(){const r=await api('state');if(r.error==='auth')return logout();if(!r.ok)return toast(r.error,'err');
+let seq=0;
+async function refresh(){const my=++seq;const r=await api('state');if(my!==seq)return r;   // ignore stale responses
+  if(r.error==='auth')return logout();if(!r.ok){toast(r.error,'err');return r}
   if(ROLE=='activity'){A=ACTS.find(x=>x.id==r.activityId)||ACTS[0];$('#cpn').textContent=A.name;$('#cnt').textContent=r.started;$('#tot').textContent=r.completed;
     $('#rec').innerHTML=`<tr><th>ID</th><th>Name</th><th>Start</th><th>End</th><th>${A.id=='A2'?'Duration':esc(A.label)}</th></tr>`+r.recent.map(x=>`<tr><td>${esc(x.id)}</td><td>${esc(x.name)}</td><td>${fmt(x.start)}</td><td>${fmt(x.end)}</td><td>${A.id=='A2'?durTxt(x.start,x.end):esc(x.result||'–')}</td></tr>`).join('')}
   else{$('#cpn').textContent=r.cp?r.cp.name:'Not assigned';$('#cnt').textContent=r.count;$('#tot').textContent=r.total;
     $('#rep').innerHTML='<tr><th>Checkpoint</th><th>Participants scanned</th></tr>'+r.report.map(x=>`<tr class="${r.cp&&x.id==r.cp.id?'me':''}"><td>${esc(x.name)}</td><td>${x.count} / ${r.total}</td></tr>`).join('');
-    $('#rec').innerHTML='<tr><th>Time</th><th>ID</th><th>Name</th></tr>'+r.recent.map(x=>`<tr><td>${fmt(x.time)}</td><td>${esc(x.id)}</td><td>${esc(x.name)}</td></tr>`).join('')}}
+    $('#rec').innerHTML='<tr><th>Time</th><th>ID</th><th>Name</th></tr>'+r.recent.map(x=>`<tr><td>${fmt(x.time)}</td><td>${esc(x.id)}</td><td>${esc(x.name)}</td></tr>`).join('')}
+  $('#syT').textContent='Last synced '+new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});return r}
+async function syncNow(){const b=$('#syncBtn');if(b.disabled)return;b.disabled=true;b.classList.add('spin');
+  const r=await refresh();b.disabled=false;b.classList.remove('spin');
+  if(r&&r.ok)toast('Synced ✔');else if(r&&r.error&&r.error!=='auth')$('#syT').textContent='Sync failed – tap Sync to retry'}
 async function boot(){if(!localStorage.getItem('vtok'))return;ROLE=localStorage.getItem('vrole')||'volunteer';
   $('#login').style.display='none';$('#app').style.display='block';$('#out').style.display='';
   if(ROLE=='activity'){$('#lbl').textContent='Your activity';$('#l1').textContent='started';$('#l2').textContent='completed';$('#repP').style.display='none'}
-  await refresh();startScan(ROLE=='activity'?actSubmit:submit);setInterval(()=>{if(!document.hidden)refresh()},10000)}
+  await refresh();startScan(ROLE=='activity'?actSubmit:submit);setInterval(()=>{if(!document.hidden)refresh()},10000);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh()});window.addEventListener('online',refresh)}
 async function submit(code){if(busy)return;busy=true;const r=await api('scan',{code});busy=false;
   if(r.error==='auth')return logout();const el=$('#res');el.style.display='block';
   if(!r.ok){el.className='res err';el.textContent=r.error;beep(0)}
