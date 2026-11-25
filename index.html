@@ -29,14 +29,16 @@ window.TOK='vtok';let busy=false,ROLE='volunteer',A=null,curCode='';
 async function login(){const u=$('#u').value.trim();const r=await api('login',{role:'volunteer',user:u,pass:await hashPw(u,$('#p').value)});
   if(!r.ok)return toast(r.error,'err',4000);if(r.session.role!=='volunteer')return toast('Activity staff: please use activity.html','err',5000);localStorage.setItem('vtok',r.token);localStorage.setItem('vrole',r.session.role);boot()}
 function logout(){localStorage.removeItem('vtok');localStorage.removeItem('vrole');stopScan();location.reload()}
+function stamp(){$('#syT').textContent='Last synced '+new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})}
+function renderVol(r){$('#cpn').textContent=r.cp?r.cp.name:'Not assigned';$('#cnt').textContent=r.count;$('#tot').textContent=r.total;
+    $('#rep').innerHTML='<tr><th>Checkpoint</th><th>Participants scanned</th></tr>'+r.report.map(x=>`<tr class="${r.cp&&x.id==r.cp.id?'me':''}"><td>${esc(x.name)}</td><td>${x.count} / ${r.total}</td></tr>`).join('');
+    $('#rec').innerHTML='<tr><th>Time</th><th>ID</th><th>Name</th></tr>'+r.recent.map(x=>`<tr><td>${fmt(x.time)}</td><td>${esc(x.id)}</td><td>${esc(x.name)}</td></tr>`).join('');stamp()}
 let seq=0;
 async function refresh(){const my=++seq;const r=await api('state');if(my!==seq)return r;   // ignore stale responses
   if(r.error==='auth')return logout();if(!r.ok){toast(r.error,'err');return r}
   if(ROLE=='activity'){A=ACTS.find(x=>x.id==r.activityId)||ACTS[0];$('#cpn').textContent=A.name;$('#cnt').textContent=r.started;$('#tot').textContent=r.completed;
     $('#rec').innerHTML=`<tr><th>ID</th><th>Name</th><th>Start</th><th>End</th><th>${A.id=='A2'?'Duration':esc(A.label)}</th></tr>`+r.recent.map(x=>`<tr><td>${esc(x.id)}</td><td>${esc(x.name)}</td><td>${fmt(x.start)}</td><td>${fmt(x.end)}</td><td>${A.id=='A2'?durTxt(x.start,x.end):esc(x.result||'–')}</td></tr>`).join('')}
-  else{$('#cpn').textContent=r.cp?r.cp.name:'Not assigned';$('#cnt').textContent=r.count;$('#tot').textContent=r.total;
-    $('#rep').innerHTML='<tr><th>Checkpoint</th><th>Participants scanned</th></tr>'+r.report.map(x=>`<tr class="${r.cp&&x.id==r.cp.id?'me':''}"><td>${esc(x.name)}</td><td>${x.count} / ${r.total}</td></tr>`).join('');
-    $('#rec').innerHTML='<tr><th>Time</th><th>ID</th><th>Name</th></tr>'+r.recent.map(x=>`<tr><td>${fmt(x.time)}</td><td>${esc(x.id)}</td><td>${esc(x.name)}</td></tr>`).join('')}
+  else renderVol(r)
   $('#syT').textContent='Last synced '+new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});return r}
 async function syncNow(){const b=$('#syncBtn');if(b.disabled)return;b.disabled=true;b.classList.add('spin');
   const r=await refresh();b.disabled=false;b.classList.remove('spin');
@@ -44,12 +46,13 @@ async function syncNow(){const b=$('#syncBtn');if(b.disabled)return;b.disabled=t
 async function boot(){if(!localStorage.getItem('vtok'))return;ROLE=localStorage.getItem('vrole')||'volunteer';
   $('#login').style.display='none';$('#app').style.display='block';$('#out').style.display='';
   if(ROLE=='activity'){$('#lbl').textContent='Your activity';$('#l1').textContent='started';$('#l2').textContent='completed';$('#repP').style.display='none'}
-  await refresh();startScan(ROLE=='activity'?actSubmit:submit);setInterval(()=>{if(!document.hidden)refresh()},10000);
+  await refresh();startScan(ROLE=='activity'?actSubmit:submit);setInterval(()=>{if(!document.hidden&&!busy)refresh()},30000);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh()});window.addEventListener('online',refresh)}
 async function submit(code){if(busy)return;busy=true;const r=await api('scan',{code});busy=false;
   if(r.error==='auth')return logout();const el=$('#res');el.style.display='block';
+  if(r.ok&&r.state){seq++;renderVol(r.state)}   // sync instantly from the scan response
   if(!r.ok){el.className='res err';el.textContent=r.error;beep(0)}
-  else if(r.status==='ok'){el.className='res ok';el.innerHTML=`✔ Recorded<b>${esc(r.name)}</b>${esc(r.id)}`;beep(1);refresh()}
+  else if(r.status==='ok'){el.className='res ok';el.innerHTML=`✔ Recorded<b>${esc(r.name)}</b>${esc(r.id)}`;beep(1)}
   else{el.className='res '+(r.status==='dup'?'warn':'err');el.innerHTML=`${esc(r.msg)}<b>${esc(r.name||'')}</b>`;beep(0)}}
 async function actSubmit(code){if(busy)return;busy=true;const r=await api('actScan',{code});busy=false;
   if(r.error==='auth')return logout();const el=$('#res');el.style.display='block';$('#endbox').style.display='none';
